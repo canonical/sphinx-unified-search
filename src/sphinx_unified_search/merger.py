@@ -1,45 +1,81 @@
 import json
 from pathlib import Path
 
+from sphinx.util import logging
+
 from .downloader import download_searchindex
 from .parser import parse_searchindex
 
+logger = logging.getLogger(__name__)
+
 
 def merge_indexes(local_index: Path, remotes: list[dict]):
+    logger.info(
+        "[unified-search] reading local index %s",
+        local_index,
+    )
 
-    merged = parse_searchindex(local_index.read_text())
+    merged = parse_searchindex(
+        local_index.read_text(encoding="utf-8")
+    )
+
+    logger.info(
+        "[unified-search] local index contains %d docs",
+        len(merged["docnames"]),
+    )
 
     next_doc_id = len(merged["docnames"])
 
-    for remote in remotes:
+    #
+    # Maps merged document IDs to remote projects.
+    #
+    project_mapping = {}
 
-        raw = download_searchindex(
-            remote["searchindex_url"]
+    for remote in remotes:
+        logger.info(
+            "[unified-search] merging project '%s'",
+            remote["name"],
         )
 
-        remote_index = parse_searchindex(raw)
+        try:
+            raw = download_searchindex(
+                remote["searchindex_url"]
+            )
+
+            remote_index = parse_searchindex(raw)
+
+            logger.info(
+                "[unified-search] remote project '%s' contains %d docs",
+                remote["name"],
+                len(remote_index["docnames"]),
+            )
+
+        except Exception as exc:
+            logger.warning(
+                "[unified-search] skipping project '%s': %s",
+                remote["name"],
+                exc,
+            )
+            continue
 
         offset = next_doc_id
 
         #
-        # rewrite docnames to absolute URLs
+        # Record which documents belong to this remote project.
         #
-
-        rewritten = []
-
-        for doc in remote_index["docnames"]:
-            rewritten.append(
-                remote["base_url"].rstrip("/")
-                + "/"
-                + doc
-            )
-
-        remote_index["docnames"] = rewritten
+        for i, docname in enumerate(remote_index["docnames"]):
+            project_mapping[offset + i] = {
+                "project": remote["name"],
+                "base_url": remote["base_url"],
+                "docname": docname,
+            }
 
         #
-        # merge docnames and titles
+        # IMPORTANT:
         #
-
+        # Keep remote docnames untouched.
+        # Do NOT rewrite them to absolute URLs.
+        #
         merged["docnames"].extend(
             remote_index["docnames"]
         )
@@ -48,12 +84,16 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
             remote_index["titles"]
         )
 
-        #
-        # merge terms
-        #
+        logger.info(
+            "[unified-search] merged %d docnames from '%s'",
+            len(remote_index["docnames"]),
+            remote["name"],
+        )
 
+        #
+        # Merge terms
+        #
         for term, refs in remote_index["terms"].items():
-
             if isinstance(refs, int):
                 refs = [refs]
 
@@ -71,12 +111,15 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
                 set(existing + refs)
             )
 
-        #
-        # merge titleterms
-        #
+        logger.info(
+            "[unified-search] merged terms from '%s'",
+            remote["name"],
+        )
 
+        #
+        # Merge titleterms
+        #
         for term, refs in remote_index["titleterms"].items():
-
             if isinstance(refs, int):
                 refs = [refs]
 
@@ -94,17 +137,36 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
                 set(existing + refs)
             )
 
+        logger.info(
+            "[unified-search] merged titleterms from '%s'",
+            remote["name"],
+        )
+
         next_doc_id += len(
             remote_index["docnames"]
         )
 
-    return merged
+    logger.info(
+        "[unified-search] final merged index contains %d docs",
+        len(merged["docnames"]),
+    )
+
+    return merged, project_mapping
 
 
-def write_searchindex(path, index):
+def write_searchindex(path: Path, index: dict):
+    logger.info(
+        "[unified-search] writing merged search index to %s",
+        path,
+    )
 
     path.write_text(
         "Search.setIndex("
         + json.dumps(index)
-        + ")"
+        + ")",
+        encoding="utf-8",
+    )
+
+    logger.info(
+        "[unified-search] search index successfully written"
     )
