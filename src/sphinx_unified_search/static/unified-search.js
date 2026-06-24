@@ -17,16 +17,36 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  console.log("[unified-search] DOMContentLoaded fired");
+  console.log(
+    "[unified-search] DOMContentLoaded fired"
+  );
 
   let mapping = {};
 
   //
-  // Load the mapping file.
+  // Build the correct URL to the mapping file.
   //
-  const staticUrl =
-    window.location.origin +
-    "/_static/unified_search_projects.json";
+  // Works for:
+  //   local builds
+  //   dirhtml
+  //   Read the Docs subpaths
+  //
+  let staticUrl;
+
+  if (
+    typeof DOCUMENTATION_OPTIONS !== "undefined"
+    && DOCUMENTATION_OPTIONS.URL_ROOT !== undefined
+  ) {
+    staticUrl =
+      DOCUMENTATION_OPTIONS.URL_ROOT +
+      "_static/unified_search_projects.json";
+  } else {
+    staticUrl =
+      new URL(
+        "../_static/unified_search_projects.json",
+        window.location.href
+      ).href;
+  }
 
   console.log(
     "[unified-search] loading mapping from:",
@@ -34,6 +54,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   );
 
   try {
+
     const response = await fetch(staticUrl);
 
     if (!response.ok) {
@@ -47,53 +68,78 @@ window.addEventListener("DOMContentLoaded", async () => {
     mapping = await response.json();
 
     console.log(
-      "[unified-search] loaded mapping",
-      mapping
+      "[unified-search] loaded mapping with",
+      Object.keys(mapping).length,
+      "entries"
     );
 
   } catch (err) {
+
     console.error(
       "[unified-search] failed to load mapping",
       err
     );
+
     return;
   }
 
   function normalize(path) {
+
     if (!path) {
       return "";
     }
 
     let normalized = path;
 
+    //
+    // Remove query strings and anchors.
+    //
     normalized = normalized.split("#")[0];
     normalized = normalized.split("?")[0];
 
+    //
+    // Remove full site URL if present.
+    //
     normalized = normalized.replace(
       window.location.origin,
       ""
     );
 
+    //
+    // Remove dirhtml ../ prefixes.
+    //
     normalized = normalized.replace(
       /^(\.\.\/)+/,
       ""
     );
 
+    //
+    // Remove leading slash.
+    //
     normalized = normalized.replace(
       /^\/+/,
       ""
     );
 
+    //
+    // Remove .html suffix.
+    //
     normalized = normalized.replace(
       /\.html$/,
       ""
     );
 
+    //
+    // Remove trailing slash.
+    //
     normalized = normalized.replace(
       /\/$/,
       ""
     );
 
+    //
+    // Remove index suffix.
+    //
     normalized = normalized.replace(
       /\/index$/,
       ""
@@ -103,12 +149,42 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   function lookupProject(docname) {
-    const normalized = normalize(docname);
+
+    const normalizedDocname =
+      normalize(docname);
+
+    console.log(
+      "[unified-search] looking up:",
+      normalizedDocname
+    );
 
     for (const info of Object.values(mapping)) {
+
+      const mappedDocname =
+        normalize(info.docname);
+
+      console.log(
+        "[unified-search] comparing",
+        normalizedDocname,
+        "with",
+        mappedDocname
+      );
+
       if (
-        normalize(info.docname) === normalized
+        mappedDocname === normalizedDocname ||
+        mappedDocname.endsWith(
+          "/" + normalizedDocname
+        ) ||
+        normalizedDocname.endsWith(
+          "/" + mappedDocname
+        )
       ) {
+
+        console.log(
+          "[unified-search] MATCH FOUND:",
+          mappedDocname
+        );
+
         return info;
       }
     }
@@ -117,16 +193,20 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   function buildSnippet(text, keywords) {
+
     if (!text) {
       return "";
     }
 
-    const lower = text.toLowerCase();
+    const lower =
+      text.toLowerCase();
 
     for (const keyword of keywords) {
 
       const idx =
-        lower.indexOf(keyword.toLowerCase());
+        lower.indexOf(
+          keyword.toLowerCase()
+        );
 
       if (idx !== -1) {
 
@@ -147,7 +227,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    return text.substring(0, 250) + "...";
+    return (
+      text.substring(0, 250) +
+      "..."
+    );
   }
 
   async function patchSearchResults() {
@@ -181,13 +264,24 @@ window.addEventListener("DOMContentLoaded", async () => {
       const href =
         anchor.getAttribute("href");
 
+      console.log(
+        "[unified-search] processing:",
+        href
+      );
+
       const info =
         lookupProject(href);
 
       //
-      // Skip local docs.
+      // Local documentation result.
       //
       if (!info) {
+
+        console.log(
+          "[unified-search] local result:",
+          href
+        );
+
         continue;
       }
 
@@ -206,7 +300,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       anchor.href = remoteUrl;
       anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
+      anchor.rel =
+        "noopener noreferrer";
 
       anchor.dataset.unifiedSearchPatched =
         "true";
@@ -216,6 +311,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           "[" + info.project + "]"
         )
       ) {
+
         anchor.innerHTML =
           "[" +
           info.project +
@@ -224,7 +320,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
 
       //
-      // Generate snippet from remote page.
+      // Fetch remote page and generate snippet.
       //
       try {
 
@@ -243,12 +339,11 @@ window.addEventListener("DOMContentLoaded", async () => {
             "text/html"
           );
 
-        //
-        // Prefer the main content area.
-        //
         const content =
           doc.querySelector("main") ||
-          doc.querySelector('[role="main"]') ||
+          doc.querySelector(
+            '[role="main"]'
+          ) ||
           doc.body;
 
         const text =
@@ -268,7 +363,9 @@ window.addEventListener("DOMContentLoaded", async () => {
           );
 
         let context =
-          result.querySelector(".context");
+          result.querySelector(
+            ".context"
+          );
 
         if (!context) {
 
@@ -278,7 +375,9 @@ window.addEventListener("DOMContentLoaded", async () => {
           context.className =
             "context";
 
-          result.appendChild(context);
+          result.appendChild(
+            context
+          );
         }
 
         context.textContent =
@@ -296,22 +395,25 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   //
-  // Patch immediately.
+  // Initial patch.
   //
   patchSearchResults();
 
   //
-  // Patch again whenever Sphinx updates results.
+  // Re-run whenever Sphinx updates results.
   //
   const observer =
     new MutationObserver(() => {
       patchSearchResults();
     });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
+  observer.observe(
+    document.body,
+    {
+      childList: true,
+      subtree: true,
+    }
+  );
 
   console.log(
     "[unified-search] observer registered"
