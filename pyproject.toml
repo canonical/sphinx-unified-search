@@ -32,6 +32,10 @@ Homepage = "https://github.com/canonical/sphinx-unified-search"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+sphinx_unified_search = ["static/*.js"]
