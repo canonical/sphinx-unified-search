@@ -1,5 +1,7 @@
 # sphinx-unified-search
 
+**THIS PROJECT IS STILL A WORK IN PROGRESS**
+
 Merge search indexes from multiple Sphinx documentation sites.
 
 `sphinx-unified-search` downloads remote Sphinx
