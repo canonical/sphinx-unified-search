@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sphinx-unified-search"
+version = "0.1.0"
+description = "Merge search indexes from multiple Sphinx documentation projects."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+
+authors = [
+  { name = "Canonical" }
+]
+
+requires-python = ">=3.10"
+
+dependencies = [
+  "Sphinx>=7.0",
+  "requests>=2.31"
+]
+
+classifiers = [
+  "Framework :: Sphinx",
+  "Framework :: Sphinx :: Extension",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Homepage = "https://github.com/canonical/sphinx-unified-search"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
