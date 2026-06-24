@@ -1,3 +1,4 @@
 include README.md
 include LICENSE
 recursive-include src *.py
+recursive-include src/sphinx_unified_search/static *.js
