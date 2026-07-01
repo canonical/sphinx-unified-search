@@ -4,6 +4,7 @@ from pathlib import Path
 from sphinx.util import logging
 
 from .downloader import download_searchindex
+from .exceptions import SearchIndexError
 from .parser import parse_searchindex
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,7 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
         )
 
         try:
-            raw = download_searchindex(
-                remote["searchindex_url"]
-            )
+            raw = download_searchindex(remote)
 
             remote_index = parse_searchindex(raw)
 
@@ -49,6 +48,28 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
                 remote["name"],
                 len(remote_index["docnames"]),
             )
+
+        except SearchIndexError as exc:
+            #
+            # Auth-related failures are treated as fatal by default,
+            # since a bad/missing token should not silently produce
+            # an incomplete search index. Set "required": False on a
+            # project to downgrade this to a warning instead.
+            #
+            if remote.get("required", True):
+                logger.warning(
+                    "[unified-search] required project '%s' failed: %s",
+                    remote["name"],
+                    exc,
+                )
+                raise
+
+            logger.warning(
+                "[unified-search] skipping optional project '%s': %s",
+                remote["name"],
+                exc,
+            )
+            continue
 
         except Exception as exc:
             logger.warning(
