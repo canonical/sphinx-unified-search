@@ -192,11 +192,36 @@ than granting broader repository or org access.
   running `sphinx-build` (local machine or CI runner) must be able to
   reach it too — a token does not grant network reachability.
 - This mechanism authenticates the **build-time fetch** of
-  `searchindex.js` only. If your theme's client-side JavaScript
-  additionally fetches remote pages at search time (e.g. to build
-  result snippets), that request runs in the visiting user's browser
-  and is unrelated to `auth_token_env` — it succeeds or fails based on
-  whether that user's browser already has access to the internal site.
+  `searchindex.js` only. It has no effect on the client-side snippet
+  preview described below — see [Search result previews](#search-result-previews).
+
+---
+
+## Search result previews
+
+For every merged result, `unified-search.js` also tries to fetch the
+result's real page in the visitor's browser, to show a short excerpt
+of surrounding text under the title. This is a **separate request**
+from the build-time `searchindex_url` fetch above, and it carries no
+token — it's a plain `fetch()` running client-side.
+
+For a private/gated project, this attempt will only succeed if the
+visitor's browser already has its own valid session with that site
+(for example, both projects are hosted under the same domain and the
+visitor is already logged in, so the request is same-origin and
+carries their session cookie automatically). There's no way to make
+this succeed unconditionally without embedding the build-time token
+in the shipped JavaScript, which would expose it to every visitor —
+so this is not done.
+
+The extension always attempts the fetch first, for every project,
+private or public. If it fails — no session, blocked by CORS, page
+not found, or any other error — a fallback message is shown instead
+of leaving the preview blank.
+
+The title and link for a result are unaffected either way — they
+come from the merged search index and the project mapping, not from
+this fetch. Only the preview excerpt depends on it.
 
 ---
 
@@ -258,8 +283,9 @@ Each dictionary accepts the following keys:
 - Object inventory (`objects.inv`) data is not merged.
 - `auth_token_env` authenticates the build-time fetch of a project's
   `searchindex.js` only — it does not grant network reachability to
-  VPN- or SSO-gated sites, and does not authenticate any client-side
-  requests a theme may make in the visitor's browser.
+  VPN- or SSO-gated sites. It has no effect on the client-side
+  snippet preview, which is a separate, unauthenticated request. See
+  [Search result previews](#search-result-previews).
 
 ---
 

@@ -21,16 +21,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     "[unified-search] DOMContentLoaded fired"
   );
 
-  let mapping = {};
+  let lookupIndex = new Map();
 
-  //
-  // Build the correct URL to the mapping file.
-  //
-  // Works for:
-  //   local builds
-  //   dirhtml
-  //   Read the Docs subpaths
-  //
   let staticUrl;
 
   if (
@@ -53,6 +45,50 @@ window.addEventListener("DOMContentLoaded", async () => {
     staticUrl
   );
 
+  function normalize(path) {
+
+    if (!path) {
+      return "";
+    }
+
+    let normalized = path;
+
+    normalized = normalized.split("#")[0];
+    normalized = normalized.split("?")[0];
+
+    normalized = normalized.replace(
+      window.location.origin,
+      ""
+    );
+
+    normalized = normalized.replace(
+      /^(\.\.\/)+/,
+      ""
+    );
+
+    normalized = normalized.replace(
+      /^\/+/,
+      ""
+    );
+
+    normalized = normalized.replace(
+      /\.html$/,
+      ""
+    );
+
+    normalized = normalized.replace(
+      /\/$/,
+      ""
+    );
+
+    normalized = normalized.replace(
+      /\/index$/,
+      ""
+    );
+
+    return normalized;
+  }
+
   try {
 
     const response = await fetch(staticUrl);
@@ -65,13 +101,20 @@ window.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    mapping = await response.json();
+    const mapping = await response.json();
 
     console.log(
       "[unified-search] loaded mapping with",
       Object.keys(mapping).length,
       "entries"
     );
+
+    for (const [namespacedDocname, info] of Object.entries(mapping)) {
+      lookupIndex.set(
+        normalize(namespacedDocname),
+        info
+      );
+    }
 
   } catch (err) {
 
@@ -83,110 +126,25 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  function normalize(path) {
+  function lookupProject(href) {
 
-    if (!path) {
-      return "";
-    }
-
-    let normalized = path;
-
-    //
-    // Remove query strings and anchors.
-    //
-    normalized = normalized.split("#")[0];
-    normalized = normalized.split("?")[0];
-
-    //
-    // Remove full site URL if present.
-    //
-    normalized = normalized.replace(
-      window.location.origin,
-      ""
-    );
-
-    //
-    // Remove dirhtml ../ prefixes.
-    //
-    normalized = normalized.replace(
-      /^(\.\.\/)+/,
-      ""
-    );
-
-    //
-    // Remove leading slash.
-    //
-    normalized = normalized.replace(
-      /^\/+/,
-      ""
-    );
-
-    //
-    // Remove .html suffix.
-    //
-    normalized = normalized.replace(
-      /\.html$/,
-      ""
-    );
-
-    //
-    // Remove trailing slash.
-    //
-    normalized = normalized.replace(
-      /\/$/,
-      ""
-    );
-
-    //
-    // Remove index suffix.
-    //
-    normalized = normalized.replace(
-      /\/index$/,
-      ""
-    );
-
-    return normalized;
-  }
-
-  function lookupProject(docname) {
-
-    const normalizedDocname =
-      normalize(docname);
+    const normalizedHref =
+      normalize(href);
 
     console.log(
       "[unified-search] looking up:",
-      normalizedDocname
+      normalizedHref
     );
 
-    for (const info of Object.values(mapping)) {
+    const info =
+      lookupIndex.get(normalizedHref);
 
-      const mappedDocname =
-        normalize(info.docname);
-
+    if (info) {
       console.log(
-        "[unified-search] comparing",
-        normalizedDocname,
-        "with",
-        mappedDocname
+        "[unified-search] MATCH FOUND:",
+        normalizedHref
       );
-
-      if (
-        mappedDocname === normalizedDocname ||
-        mappedDocname.endsWith(
-          "/" + normalizedDocname
-        ) ||
-        normalizedDocname.endsWith(
-          "/" + mappedDocname
-        )
-      ) {
-
-        console.log(
-          "[unified-search] MATCH FOUND:",
-          mappedDocname
-        );
-
-        return info;
-      }
+      return info;
     }
 
     return null;
@@ -231,6 +189,25 @@ window.addEventListener("DOMContentLoaded", async () => {
       text.substring(0, 250) +
       "..."
     );
+  }
+
+  function setContext(result, message) {
+
+    let context =
+      result.querySelector(".context");
+
+    if (!context) {
+
+      context =
+        document.createElement("p");
+
+      context.className =
+        "context";
+
+      result.appendChild(context);
+    }
+
+    context.textContent = message;
   }
 
   async function patchSearchResults() {
@@ -320,12 +297,23 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
 
       //
-      // Fetch remote page and generate snippet.
+      // Always attempt the snippet fetch, even for projects marked
+      // skip_snippet. Some visitors may already have a valid session
+      // for the target site (e.g. same-origin requests carry cookies
+      // automatically) and will get a real preview; the fallback
+      // message below is only shown when the fetch genuinely fails —
+      // never preemptively based on project config alone.
       //
       try {
 
         const response =
           await fetch(remoteUrl);
+
+        if (!response.ok) {
+          throw new Error(
+            "HTTP " + response.status
+          );
+        }
 
         const html =
           await response.text();
@@ -362,26 +350,7 @@ window.addEventListener("DOMContentLoaded", async () => {
             keywords
           );
 
-        let context =
-          result.querySelector(
-            ".context"
-          );
-
-        if (!context) {
-
-          context =
-            document.createElement("p");
-
-          context.className =
-            "context";
-
-          result.appendChild(
-            context
-          );
-        }
-
-        context.textContent =
-          snippet;
+        setContext(result, snippet);
 
       } catch (err) {
 
@@ -389,6 +358,11 @@ window.addEventListener("DOMContentLoaded", async () => {
           "[unified-search] snippet generation failed for",
           remoteUrl,
           err
+        );
+
+        setContext(
+          result,
+          "Unable to load preview. Click on results to view the full page."
         );
       }
     }
