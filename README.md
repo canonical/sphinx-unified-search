@@ -4,13 +4,11 @@
 
 Merge search indexes from multiple Sphinx documentation sites.
 
-`sphinx-unified-search` downloads remote Sphinx
-`searchindex.js` files during the HTML build and merges
-them into the local search index.
+`sphinx-unified-search` downloads remote Sphinx `searchindex.js` files during
+the HTML build and merges them into the local search index.
 
-The standard Sphinx search UI is preserved, while users
-can search across multiple independent documentation
-projects from a single search box.
+The standard Sphinx search UI is preserved, while users can search across
+multiple independent documentation projects from a single search box.
 
 ## Features
 
@@ -24,15 +22,71 @@ projects from a single search box.
 
 ---
 
-## Installation
+The `sphinx-unified-search` extension may need to access two types of private
+resources during a documentation build:
 
-```bash
-pip install sphinx-unified-search
+- the private GitHub repository that hosts the extension itself
+- any private Read the Docs projects whose search indexes should be included
+
+Complete the following setup before installing and configuring the extension.
+
+## Configure access to sphinx-unified-search extension
+
+Since the `sphinx-unified-search` extension is currently internal and
+accessible only within the organization, you must configure access to the
+private GitHub repository before Read the Docs (RTD) can install it during a
+documentation build.
+
+1. Create a GitHub personal access token (PAT) with read access to the
+   `canonical/sphinx-unified-search` repository.
+   - This can be a dedicated bot account if preferred.
+   - Copy the generated token, as GitHub will not display it again.
+1. Add the token as a secret environment variable in the Read the Docs project
+   that will use the extension.
+   - Go to **https://app.readthedocs.com/dashboard/<project>/edit/** \>
+   **Building** \> **Environment variables**.
+   - Add a new variable, for example, "SPHINX_UNIFIED_SEARCH_TOKEN", and paste the PAT
+     as its value.
+   - Enable "Expose this environment variable in PR builds" if pull request
+     builds also need to install the extension.
+1. If your documentation is also built in GitHub Actions, add the same token as
+   a GitHub Actions secret named `SPHINX_UNIFIED_SEARCH_TOKEN`.
+
+Once the environment variable is configured, RTD can authenticate with GitHub
+and install the extension without storing credentials in your repository.
+
+## Configure access to private documentation projects
+
+If you want to include a private RTD project in the unified search, you must
+create an HTTP header token that can be used to download its `searchindex.js`.
+
+For each private project:
+
+1. Open the project's Read the Docs settings.
+1. Go to "Sharing" and "Add share".
+1. Select "HTTP header token" for the "Access type", and a suitable expiry date.
+1. Select the "Allow access to all versions?" option if you intend to use the
+   `searchindex.js` for all versions of the docs set.
+   Otherwise, unselect that option and add the versions that will be used for
+   `sphinx-unified-search` extension. 
+
+Copy the generated token and store it as a secret environment variable in
+the Read the Docs project that is building the unified search.
+
+For example, `KFACTORY_DOCS_TOKEN=<generated HTTP header token>`.
+
+## Install the extension
+
+Add `sphinx-unified-search` to the `requirements.txt` file in your Sphinx
+project:
+
+```
+git+https://x-access-token:${SPHINX_UNIFIED_SEARCH_TOKEN}@github.com/canonical/sphinx-unified-search.git@main
 ```
 
 ## Enable the extension
 
-Add the extension to your `conf.py`:
+Add `sphinx_unified_search` to the `extensions` list in `conf.py`:
 
 ```python
 extensions = [
@@ -40,255 +94,67 @@ extensions = [
 ]
 ```
 
-## Configure remote projects
+## Configure projects to index
+
+Configure the list of documentation projects whose search indexes should be
+included in the unified search.
+
+For each project, specify:
+
+- `name`: a unique identifier for the project. For search results from projects
+  other than the host project, this value is appended to the page title.
+- `base_url`: the base URL of the documentation, used as the destination when a
+  user clicks a search result.
+- `searchindex_url`: the URL of the project's `searchindex.js`.
+
+For private projects, also specify:
+
+- `auth_token_env`: the name of the environment variable containing the Read the
+  Docs HTTP header token.
+- `auth_scheme`: the authorization scheme to use in the HTTP `Authorization`
+  header. For Read the Docs HTTP header tokens, set this to "Token".
 
 ```python
 unified_search_projects = [
+    # Public project — no auth needed, plain HTTP fetch
     {
-        "name": "Juju",
-        "base_url": "https://juju.is/docs",
-        "searchindex_url":
-            "https://juju.is/docs/searchindex.js",
+        "name": "Landscape",
+        "base_url": "https://documentation.ubuntu.com/landscape/",
+        "searchindex_url": "https://documentation.ubuntu.com/landscape/searchindex.js",
     },
+
+    # Private project — token-gated fetch
     {
-        "name": "Pebble",
-        "base_url":
-            "https://documentation.ubuntu.com/pebble",
-        "searchindex_url":
-            "https://documentation.ubuntu.com/pebble/searchindex.js",
+        "name": "KernelFactory",
+        "base_url": "https://documentation.ubuntu.com/kernelfactory/latest/",
+        "searchindex_url": "https://documentation.ubuntu.com/kernelfactory/latest/searchindex.js",
+        "auth_token_env": "KFACTORY_DOCS_TOKEN",
+        "auth_scheme": "Token",
     },
 ]
 ```
 
-## Build
+## Build the docs locally
 
-```bash
-make html
-```
+When building the documentation locally, you must set the environment variables
+referenced by the `auth_token_env` entries in `unified_search_projects`.
 
-The generated `searchindex.js` will contain:
-
-- pages from the local documentation project
-- pages from every configured remote project
-
-No changes to themes or templates are required.
-
----
-
-## Private / internal projects
-
-Some `searchindex.js` files aren't publicly reachable — for example,
-documentation hosted behind SSO, a VPN-only network, or an internal
-reverse proxy that requires a bearer token. `sphinx-unified-search`
-supports this by resolving a token **from an environment variable**
-at build time and sending it as a request header when fetching that
-project's `searchindex_url`.
-
-Tokens are never written into `conf.py` or checked into version
-control — only the *name* of the environment variable is configured,
-and the value is read from the environment at build time.
-
-### Configuring a private project
-
-Add `auth_token_env` to that project's entry:
-
-```python
-unified_search_projects = [
-    {
-        "name": "Juju",
-        "base_url": "https://juju.is/docs",
-        "searchindex_url":
-            "https://juju.is/docs/searchindex.js",
-        # public project — no auth fields needed
-    },
-    {
-        "name": "Internal Kernel Docs",
-        "base_url":
-            "https://docs.internal.example.com/kernel",
-        "searchindex_url":
-            "https://docs.internal.example.com/kernel/searchindex.js",
-        "auth_token_env": "INTERNAL_DOCS_TOKEN",
-    },
-]
-```
-
-At build time, the extension reads `os.environ["INTERNAL_DOCS_TOKEN"]`
-and sends it as:
-
-```
-Authorization: Bearer <token>
-```
-
-If your internal server expects a different header name or scheme
-(for example a custom header, or no scheme prefix), override either:
+For example, if a project uses:
 
 ```python
 {
-    "name": "Internal Kernel Docs",
-    "base_url": "https://docs.internal.example.com/kernel",
-    "searchindex_url":
-        "https://docs.internal.example.com/kernel/searchindex.js",
-    "auth_token_env": "INTERNAL_DOCS_TOKEN",
-    "auth_header": "Private-Token",
-    "auth_scheme": "",
+    "auth_token_env": "KFACTORY_DOCS_TOKEN",
+    ...
 }
 ```
 
-### Providing the token locally
+Export the corresponding token before building:
 
-```bash
-export INTERNAL_DOCS_TOKEN="your-token-here"
-make html
+```shell
+export KFACTORY_DOCS_TOKEN="<token>"
 ```
 
-### Providing the token in GitHub Actions
+Repeat this for each private project included in `unified_search_projects`.
 
-Store the token as a repository or organization secret, then pass it
-to the build step as an environment variable:
-
-```yaml
-jobs:
-  build-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build docs
-        env:
-          INTERNAL_DOCS_TOKEN: ${{ secrets.INTERNAL_DOCS_TOKEN }}
-        run: make html
-```
-
-The token only needs read access to the built `searchindex.js`
-artifact — scope it as narrowly as your hosting setup allows rather
-than granting broader repository or org access.
-
-### Failure behavior
-
-- If `auth_token_env` is set but the environment variable is missing,
-  the build fails immediately with a clear error, rather than
-  attempting an unauthenticated request.
-- If the remote server responds `401`/`403`, the build fails with an
-  error identifying the project and the environment variable to check.
-- By default, a failed private project **fails the whole build**,
-  since a bad or missing token should not silently produce an
-  incomplete search index. To instead skip that project and continue
-  the build with a warning, mark it as optional:
-
-  ```python
-  {
-      "name": "Internal Kernel Docs",
-      "base_url": "https://docs.internal.example.com/kernel",
-      "searchindex_url":
-          "https://docs.internal.example.com/kernel/searchindex.js",
-      "auth_token_env": "INTERNAL_DOCS_TOKEN",
-      "required": False,
-  }
-  ```
-
-### Notes and caveats
-
-- A valid token only proves *authorization*. If the internal site is
-  also only reachable over a VPN or private network, the machine
-  running `sphinx-build` (local machine or CI runner) must be able to
-  reach it too — a token does not grant network reachability.
-- This mechanism authenticates the **build-time fetch** of
-  `searchindex.js` only. It has no effect on the client-side snippet
-  preview described below — see [Search result previews](#search-result-previews).
-
----
-
-## Search result previews
-
-For every merged result, `unified-search.js` also tries to fetch the
-result's real page in the visitor's browser, to show a short excerpt
-of surrounding text under the title. This is a **separate request**
-from the build-time `searchindex_url` fetch above, and it carries no
-token — it's a plain `fetch()` running client-side.
-
-For a private/gated project, this attempt will only succeed if the
-visitor's browser already has its own valid session with that site
-(for example, both projects are hosted under the same domain and the
-visitor is already logged in, so the request is same-origin and
-carries their session cookie automatically). There's no way to make
-this succeed unconditionally without embedding the build-time token
-in the shipped JavaScript, which would expose it to every visitor —
-so this is not done.
-
-The extension always attempts the fetch first, for every project,
-private or public. If it fails — no session, blocked by CORS, page
-not found, or any other error — a fallback message is shown instead
-of leaving the preview blank.
-
-The title and link for a result are unaffected either way — they
-come from the merged search index and the project mapping, not from
-this fetch. Only the preview excerpt depends on it.
-
----
-
-## Configuration reference
-
-### `unified_search_projects`
-
-Type:
-
-```python
-list[dict]
-```
-
-Default:
-
-```python
-[]
-```
-
-Example:
-
-```python
-unified_search_projects = [
-    {
-        "name": "Juju",
-        "base_url": "https://juju.is/docs",
-        "searchindex_url":
-            "https://juju.is/docs/searchindex.js",
-    }
-]
-```
-
-Each dictionary accepts the following keys:
-
-| Key | Required | Description |
-|------|----------|-------------|
-| `name` | Yes | Human-readable project name |
-| `base_url` | Yes | Root URL of the documentation |
-| `searchindex_url` | Yes | URL of the remote `searchindex.js` |
-| `auth_token_env` | No | Name of the environment variable holding a bearer token. If set, its value is sent as a request header when fetching `searchindex_url`. See [Private / internal projects](#private--internal-projects). |
-| `auth_header` | No | Header name to send the token in. Default: `Authorization` |
-| `auth_scheme` | No | Scheme prefix for the token value, e.g. `Bearer`. Default: `Bearer`. Set to `""` to send the raw token with no prefix. |
-| `required` | No | If `True` (default), a failed fetch for this project fails the whole build. If `False`, a failed fetch is logged as a warning and the project is skipped. |
-
----
-
-## Compatibility
-
-- Sphinx 7+
-- HTML builders only
-
----
-
-## Limitations
-
-- All projects should use compatible Sphinx versions.
-- Search ranking uses the standard Sphinx ranking algorithm.
-- Very large federations may increase build time.
-- Object inventory (`objects.inv`) data is not merged.
-- `auth_token_env` authenticates the build-time fetch of a project's
-  `searchindex.js` only — it does not grant network reachability to
-  VPN- or SSO-gated sites. It has no effect on the client-side
-  snippet preview, which is a separate, unauthenticated request. See
-  [Search result previews](#search-result-previews).
-
----
-
-## License
-
-Apache-2.0
+Once the required environment variables are set, build or serve the
+documentation as usual with `make html` or `make run`.
