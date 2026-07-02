@@ -22,6 +22,8 @@ multiple independent documentation projects from a single search box.
 
 ---
 
+## Use the extension
+
 The `sphinx-unified-search` extension may need to access two types of private
 resources during a documentation build:
 
@@ -30,7 +32,7 @@ resources during a documentation build:
 
 Complete the following setup before installing and configuring the extension.
 
-## Configure access to sphinx-unified-search extension
+### Configure access to sphinx-unified-search extension
 
 Since the `sphinx-unified-search` extension is currently internal and
 accessible only within the organization, you must configure access to the
@@ -55,7 +57,7 @@ documentation build.
 Once the environment variable is configured, RTD can authenticate with GitHub
 and install the extension without storing credentials in your repository.
 
-## Configure access to private documentation projects
+### Configure access to private documentation projects
 
 If you want to include a private RTD project in the unified search, you must
 create an HTTP header token that can be used to download its `searchindex.js`.
@@ -75,7 +77,7 @@ the Read the Docs project that is building the unified search.
 
 For example, `KFACTORY_DOCS_TOKEN=<generated HTTP header token>`.
 
-## Install the extension
+### Install the extension
 
 Add `sphinx-unified-search` to the `requirements.txt` file in your Sphinx
 project:
@@ -84,7 +86,7 @@ project:
 git+https://x-access-token:${SPHINX_UNIFIED_SEARCH_TOKEN}@github.com/canonical/sphinx-unified-search.git@main
 ```
 
-## Enable the extension
+### Enable the extension
 
 Add `sphinx_unified_search` to the `extensions` list in `conf.py`:
 
@@ -94,7 +96,7 @@ extensions = [
 ]
 ```
 
-## Configure projects to index
+### Configure projects to index
 
 Configure the list of documentation projects whose search indexes should be
 included in the unified search.
@@ -134,7 +136,7 @@ unified_search_projects = [
 ]
 ```
 
-## Build the docs locally
+### Build the docs locally
 
 When building the documentation locally, you must set the environment variables
 referenced by the `auth_token_env` entries in `unified_search_projects`.
