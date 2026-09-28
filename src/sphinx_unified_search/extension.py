@@ -39,6 +39,10 @@ def add_js_to_search_page(app, pagename, templatename, context, doctree):
         return
 
     context["script_files"].append(
+        "_static/unified-search-scorer.js"
+    )
+
+    context["script_files"].append(
         "_static/unified-search.js"
     )
 

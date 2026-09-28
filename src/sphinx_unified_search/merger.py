@@ -22,6 +22,65 @@ def _project_key(name: str) -> str:
     return slug or "project"
 
 
+def _merge_doc_ref_dict(merged: dict, remote: dict, key: str, offset: int):
+    """
+    Merge a "term -> [[docId, anchor, ...], ...]" style dict such as
+    "alltitles" or "indexentries".
+
+    Each entry's first element is a doc ID, so it must be shifted by
+    ``offset``; the remaining elements (anchor, isMain flag) are kept
+    as-is. Entries under a key that already exists (e.g. the same
+    section heading in local docs) are appended, never replaced.
+    """
+    target = merged.setdefault(key, {})
+
+    for name, entries in remote.get(key, {}).items():
+        shifted = [[entry[0] + offset, *entry[1:]] for entry in entries]
+        target.setdefault(name, []).extend(shifted)
+
+
+def _merge_objects(merged: dict, remote: dict, offset: int):
+    """
+    Merge domain objects ("objects", "objnames", "objtypes").
+
+    "objects" maps a prefix to entries of
+    [docId, objTypeIndex, priority, anchor, name]. Both docId and
+    objTypeIndex need remapping: docId by ``offset``, and objTypeIndex
+    because each index has its own numbering of object types. Types
+    are de-duplicated by their "domain:objtype" string so a remote's
+    "py:function" reuses the local one instead of adding a copy.
+    """
+    if not remote.get("objects"):
+        return
+
+    m_types = merged.setdefault("objtypes", {})
+    m_names = merged.setdefault("objnames", {})
+    m_objects = merged.setdefault("objects", {})
+
+    by_name = {value: idx for idx, value in m_types.items()}
+    next_type = max((int(i) for i in m_types), default=-1) + 1
+
+    type_map = {}
+    for idx, value in remote.get("objtypes", {}).items():
+        if value in by_name:
+            type_map[int(idx)] = int(by_name[value])
+            continue
+
+        m_types[str(next_type)] = value
+        if idx in remote.get("objnames", {}):
+            m_names[str(next_type)] = remote["objnames"][idx]
+        by_name[value] = str(next_type)
+        type_map[int(idx)] = next_type
+        next_type += 1
+
+    for prefix, entries in remote["objects"].items():
+        for entry in entries:
+            doc_id, type_idx, *rest = entry
+            m_objects.setdefault(prefix, []).append(
+                [doc_id + offset, type_map.get(type_idx, type_idx), *rest]
+            )
+
+
 def merge_indexes(local_index: Path, remotes: list[dict]):
     logger.info(
         "[unified-search] reading local index %s",
@@ -203,6 +262,31 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
 
         logger.info(
             "[unified-search] merged titleterms from '%s'",
+            remote["name"],
+        )
+
+        #
+        # Merge the remaining doc-ID-bearing structures. All of these
+        # reference documents by position, so each must be shifted by
+        # this remote's offset or they would point at the wrong docs.
+        #
+        # "filenames" runs parallel to "docnames"; pad with empty
+        # strings if an older Sphinx didn't emit it, so positions stay
+        # aligned for every doc that follows.
+        #
+        remote_filenames = remote_index.get("filenames") or [
+            "" for _ in remote_index["docnames"]
+        ]
+        merged.setdefault("filenames", [""] * offset)
+        merged["filenames"].extend(remote_filenames)
+
+        _merge_doc_ref_dict(merged, remote_index, "alltitles", offset)
+        _merge_doc_ref_dict(merged, remote_index, "indexentries", offset)
+        _merge_objects(merged, remote_index, offset)
+
+        logger.info(
+            "[unified-search] merged filenames, alltitles, "
+            "indexentries and objects from '%s'",
             remote["name"],
         )
 
