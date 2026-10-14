@@ -2,43 +2,32 @@ console.log("[unified-search] file loaded");
 
 window.addEventListener("DOMContentLoaded", async () => {
 
-  //
-  // Only run on the Sphinx search page.
-  //
-  const isSearchPage =
-    window.location.pathname.endsWith("/search/") ||
-    window.location.pathname.endsWith("/search/index.html") ||
-    window.location.pathname.endsWith("/search.html");
-
-  if (!isSearchPage) {
-    console.log(
-      "[unified-search] not on search page, skipping"
-    );
-    return;
-  }
-
   console.log(
     "[unified-search] DOMContentLoaded fired"
   );
 
   let lookupIndex = new Map();
 
-  let staticUrl;
+  //
+  // Resolve the docs root. Sphinx >= 7 exposes it as
+  // <html data-content_root="...">; older versions used
+  // DOCUMENTATION_OPTIONS.URL_ROOT. The last-resort "../" guess only
+  // holds for dirhtml builds, so it must not be the first choice.
+  //
+  const contentRoot =
+    document.documentElement.dataset.content_root
+    ?? (
+      typeof DOCUMENTATION_OPTIONS !== "undefined"
+        ? DOCUMENTATION_OPTIONS.URL_ROOT
+        : undefined
+    )
+    ?? "../";
 
-  if (
-    typeof DOCUMENTATION_OPTIONS !== "undefined"
-    && DOCUMENTATION_OPTIONS.URL_ROOT !== undefined
-  ) {
-    staticUrl =
-      DOCUMENTATION_OPTIONS.URL_ROOT +
-      "_static/unified_search_projects.json";
-  } else {
-    staticUrl =
-      new URL(
-        "../_static/unified_search_projects.json",
-        window.location.href
-      ).href;
-  }
+  const staticUrl =
+    new URL(
+      contentRoot + "_static/unified_search_projects.json",
+      window.location.href
+    ).href;
 
   console.log(
     "[unified-search] loading mapping from:",
@@ -62,7 +51,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     );
 
     normalized = normalized.replace(
-      /^(\.\.\/)+/,
+      /^(\.{1,2}\/)+/,
       ""
     );
 
@@ -89,6 +78,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     return normalized;
   }
 
+  //
+  // If the mapping cannot be loaded we still carry on with an empty
+  // lookup table. Returning here would leave every remote result
+  // pointing at its raw "__unified__/..." URL; with an empty table
+  // those results are hidden instead (see patchSearchResultsInner).
+  //
   try {
 
     const response = await fetch(staticUrl);
@@ -96,24 +91,25 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!response.ok) {
       console.warn(
         "[unified-search] mapping fetch failed:",
-        response.status
+        response.status,
+        staticUrl
       );
-      return;
-    }
+    } else {
 
-    const mapping = await response.json();
+      const mapping = await response.json();
 
-    console.log(
-      "[unified-search] loaded mapping with",
-      Object.keys(mapping).length,
-      "entries"
-    );
-
-    for (const [namespacedDocname, info] of Object.entries(mapping)) {
-      lookupIndex.set(
-        normalize(namespacedDocname),
-        info
+      console.log(
+        "[unified-search] loaded mapping with",
+        Object.keys(mapping).length,
+        "entries"
       );
+
+      for (const [namespacedDocname, info] of Object.entries(mapping)) {
+        lookupIndex.set(
+          normalize(namespacedDocname),
+          info
+        );
+      }
     }
 
   } catch (err) {
@@ -122,8 +118,55 @@ window.addEventListener("DOMContentLoaded", async () => {
       "[unified-search] failed to load mapping",
       err
     );
+  }
 
-    return;
+  function isNamespaced(href) {
+    return normalize(href).startsWith("__unified__/");
+  }
+
+  //
+  // Identity of a page for de-duplication: its title plus the last
+  // segment of its path. Strips the "[project] " prefix we add.
+  //
+  function pageKey(anchor, docPath) {
+    const title =
+      (anchor.textContent || "")
+        .replace(/^\[[^\]]*\]\s*/, "")
+        .trim()
+        .toLowerCase();
+    const leaf = normalize(docPath).split("/").pop();
+    return title + "|" + leaf;
+  }
+
+  //
+  // When the same page is indexed locally AND in a remote project,
+  // keep the local result and hide the remote copy. Safe to run
+  // repeatedly; results arrive progressively.
+  //
+  function dedupeResults() {
+    const results = [...document.querySelectorAll("ul.search li")];
+    const localKeys = new Set();
+
+    for (const result of results) {
+      const a = result.querySelector("a");
+      if (a && !a.dataset.unifiedSearchRemote) {
+        localKeys.add(pageKey(a, a.getAttribute("href")));
+      }
+    }
+
+    for (const result of results) {
+      const a = result.querySelector("a");
+      if (!a || !a.dataset.unifiedSearchRemote) continue;
+
+      const dup = localKeys.has(pageKey(a, a.dataset.unifiedSearchRemote));
+      if (dup && !result.hidden) {
+        console.log(
+          "[unified-search] hiding duplicate of local page:",
+          a.href
+        );
+      }
+      result.hidden = dup;
+    }
   }
 
   function lookupProject(href) {
@@ -211,6 +254,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function patchSearchResults() {
+    await patchSearchResultsInner();
+    dedupeResults();
+  }
+
+  async function patchSearchResultsInner() {
 
     const searchResults =
       document.querySelectorAll(
@@ -250,6 +298,22 @@ window.addEventListener("DOMContentLoaded", async () => {
         lookupProject(href);
 
       //
+      // A namespaced docname that we could not map back to a project
+      // would link to a page that does not exist. Hide it.
+      //
+      if (!info && isNamespaced(href)) {
+
+        console.warn(
+          "[unified-search] unresolved namespaced result, hiding:",
+          href
+        );
+
+        result.hidden = true;
+        anchor.dataset.unifiedSearchPatched = "true";
+        continue;
+      }
+
+      //
       // Local documentation result.
       //
       if (!info) {
@@ -282,6 +346,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       anchor.dataset.unifiedSearchPatched =
         "true";
+      anchor.dataset.unifiedSearchRemote =
+        info.docname;
 
       if (
         !anchor.textContent.startsWith(
@@ -294,6 +360,12 @@ window.addEventListener("DOMContentLoaded", async () => {
           info.project +
           "] " +
           anchor.innerHTML;
+      }
+
+      dedupeResults();
+
+      if (result.hidden) {
+        continue;
       }
 
       //
