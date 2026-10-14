@@ -120,6 +120,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
+  //
+  // The HTML "hidden" attribute loses to any theme CSS that sets
+  // "display" on result items, so hide with an inline style as well.
+  //
+  function setHidden(result, hide) {
+    result.hidden = hide;
+    result.style.display = hide ? "none" : "";
+  }
+
+  function isHidden(result) {
+    return result.style.display === "none";
+  }
+
   function isNamespaced(href) {
     return normalize(href).startsWith("__unified__/");
   }
@@ -159,13 +172,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (!a || !a.dataset.unifiedSearchRemote) continue;
 
       const dup = localKeys.has(pageKey(a, a.dataset.unifiedSearchRemote));
-      if (dup && !result.hidden) {
+      if (dup && !isHidden(result)) {
         console.log(
           "[unified-search] hiding duplicate of local page:",
           a.href
         );
       }
-      result.hidden = dup;
+      setHidden(result, dup);
     }
   }
 
@@ -308,7 +321,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           href
         );
 
-        result.hidden = true;
+        setHidden(result, true);
         anchor.dataset.unifiedSearchPatched = "true";
         continue;
       }
@@ -364,7 +377,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       dedupeResults();
 
-      if (result.hidden) {
+      if (isHidden(result)) {
         continue;
       }
 
