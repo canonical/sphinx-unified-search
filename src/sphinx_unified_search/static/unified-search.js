@@ -327,6 +327,23 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
 
       //
+      // A remote docname that is itself namespaced was merged into the
+      // remote project from somewhere else (nested unified search); the
+      // URL we would build does not exist. Hide it.
+      //
+      if (info && info.docname.startsWith("__unified__/")) {
+
+        console.warn(
+          "[unified-search] nested namespaced result, hiding:",
+          href
+        );
+
+        setHidden(result, true);
+        anchor.dataset.unifiedSearchPatched = "true";
+        continue;
+      }
+
+      //
       // Local documentation result.
       //
       if (!info) {

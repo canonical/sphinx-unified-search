@@ -81,6 +81,78 @@ def _merge_objects(merged: dict, remote: dict, offset: int):
             )
 
 
+NAMESPACE_PREFIX = "__unified__/"
+
+
+def _own_docs_only(index: dict) -> tuple[dict, int]:
+    """
+    Drop documents that a remote index itself merged in from other
+    projects (docnames starting with ``__unified__/``).
+
+    If a remote project also uses unified search, its index contains
+    its own pages plus namespaced copies of *other* projects' pages.
+    Importing those would re-namespace them (``__unified__/a/__unified__/b/...``)
+    and resolve them to URLs that do not exist on the remote site, and
+    could even pull this project's own pages back in. Only a project's
+    own pages are importable; list the other projects in
+    ``unified_search_projects`` directly to search them too.
+
+    Every structure that references documents by position is
+    re-numbered so it stays aligned with the filtered ``docnames``.
+
+    Returns the filtered index and the number of documents dropped.
+    """
+    docnames = index["docnames"]
+    keep = [
+        i for i, name in enumerate(docnames)
+        if not name.startswith(NAMESPACE_PREFIX)
+    ]
+
+    dropped = len(docnames) - len(keep)
+    if not dropped:
+        return index, 0
+
+    remap = {old: new for new, old in enumerate(keep)}
+
+    def pick(seq):
+        return [seq[i] for i in keep if i < len(seq)]
+
+    def remap_refs(refs):
+        if isinstance(refs, int):
+            return remap.get(refs)
+        kept = [remap[r] for r in refs if r in remap]
+        return kept or None
+
+    def remap_term_dict(terms):
+        out = {}
+        for term, refs in terms.items():
+            new = remap_refs(refs)
+            if new is not None:
+                out[term] = new
+        return out
+
+    def remap_entry_dict(entries_by_key):
+        out = {}
+        for key, entries in entries_by_key.items():
+            kept = [[remap[e[0]], *e[1:]] for e in entries if e[0] in remap]
+            if kept:
+                out[key] = kept
+        return out
+
+    filtered = dict(index)
+    filtered["docnames"] = pick(docnames)
+    filtered["titles"] = pick(index["titles"])
+    if index.get("filenames"):
+        filtered["filenames"] = pick(index["filenames"])
+    filtered["terms"] = remap_term_dict(index.get("terms", {}))
+    filtered["titleterms"] = remap_term_dict(index.get("titleterms", {}))
+    for key in ("alltitles", "indexentries", "objects"):
+        if key in index:
+            filtered[key] = remap_entry_dict(index[key])
+
+    return filtered, dropped
+
+
 def merge_indexes(local_index: Path, remotes: list[dict]):
     logger.info(
         "[unified-search] reading local index %s",
@@ -117,6 +189,16 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
             raw = download_searchindex(remote)
 
             remote_index = parse_searchindex(raw)
+
+            remote_index, dropped = _own_docs_only(remote_index)
+
+            if dropped:
+                logger.info(
+                    "[unified-search] skipped %d document(s) in '%s' that it "
+                    "merged from other projects",
+                    dropped,
+                    remote["name"],
+                )
 
             logger.info(
                 "[unified-search] remote project '%s' contains %d docs",

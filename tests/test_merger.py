@@ -97,3 +97,42 @@ def test_objects_remap_doc_ids_and_dedupe_types(merged):
 def test_terms_still_offset(merged):
     assert merged["terms"]["releas"] == [3]
     assert merged["titleterms"]["note"] == [3]
+
+
+def test_remote_merged_docs_are_not_reimported(tmp_path, monkeypatch):
+    """A remote that itself uses unified search must contribute only its
+    own pages, with all doc-id tables re-numbered."""
+    remote = {
+        "docnames": ["index", "__unified__/other/page", "notes"],
+        "filenames": ["index.md", "", "notes.md"],
+        "titles": ["Remote", "Other page", "Release notes"],
+        "terms": {"releas": [1, 2], "other": 1, "both": [0, 1]},
+        "titleterms": {"note": 2, "other": [1]},
+        "alltitles": {"Other page": [[1, None]], "Notes": [[2, None]]},
+        "indexentries": {"x": [[1, "x", 1], [2, "x", 0]]},
+        "objects": {"p": [[1, 0, 1, "", "gone"], [2, 0, 1, "", "kept"]]},
+        "objnames": {"0": ["py", "function", "Python function"]},
+        "objtypes": {"0": "py:function"},
+    }
+    local = tmp_path / "searchindex.js"
+    local.write_text(_js(LOCAL), encoding="utf-8")
+    monkeypatch.setattr(merger, "download_searchindex", lambda r: _js(remote))
+
+    result, mapping = merger.merge_indexes(
+        local, [{"name": "R", "base_url": "https://x"}]
+    )
+
+    assert result["docnames"] == [
+        "index", "guide", "__unified__/r/index", "__unified__/r/notes"
+    ]
+    assert len(result["titles"]) == len(result["filenames"]) == 4
+    assert not any("other" in k for k in mapping)
+    # remote "notes" is now doc 3 (was 2); the dropped doc's refs are gone
+    assert result["terms"]["releas"] == [3]
+    assert result["terms"]["both"] == [2]
+    assert "other" not in result["terms"]
+    assert result["titleterms"]["note"] == [3]
+    assert "Other page" not in result["alltitles"]
+    assert result["alltitles"]["Notes"] == [[3, None]]
+    assert result["indexentries"]["x"] == [[3, "x", 0]]
+    assert result["objects"]["p"] == [[3, 0, 1, "", "kept"]]
