@@ -8,6 +8,12 @@
  * "24.04 LTS release notes" outrank pages that merely mention
  * "release" and "note" in body text for the query "release notes".
  *
+ * It also gives pages from this project a small bump over equivalent
+ * pages from remote (merged) projects, so when two pages are otherwise
+ * equal the local one is listed first. The bump is deliberately smaller
+ * than the gap between match types, so it only breaks ties; it never
+ * lets a weaker local match beat a clearly stronger remote one.
+ *
  * It only re-orders results; it never adds or removes any.
  *
  * Works regardless of script load order relative to searchtools.js:
@@ -17,6 +23,17 @@
 (function () {
   const BONUS_PER_TITLE_WORD = 10;
   const BONUS_ALL_WORDS_IN_TITLE = 10;
+
+  // Tie-breaker for local (non-remote) pages. Keep this smaller than the
+  // gap between Sphinx's match weights (e.g. term 5 vs partialTerm 2).
+  const BONUS_LOCAL = 2;
+
+  // Merged remote docs are namespaced under this prefix by the merger.
+  const REMOTE_PREFIX = "__unified__/";
+
+  function isLocal(result) {
+    return !String(result[0] || "").startsWith(REMOTE_PREFIX);
+  }
 
   // Crude English suffix strip ("notes" -> "not", "release" -> "releas")
   // so "notes" matches a title containing "note". Matching is by prefix
@@ -34,7 +51,8 @@
   }
 
   function score(result) {
-    const base = result[4];
+    const localBonus = isLocal(result) ? BONUS_LOCAL : 0;
+    const base = result[4] + localBonus;
     const stems = queryStems();
     if (!stems.length) return base;
 
