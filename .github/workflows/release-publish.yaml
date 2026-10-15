@@ -30,6 +30,16 @@ jobs:
           uv pip install build twine
           uv run --no-sync -m build
           uv run --no-sync twine check dist/*
+      - name: Verify built version matches tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          ls dist/
+          if [ ! -f "dist/sphinx_unified_search-${REF_NAME}.tar.gz" ] || \
+             [ ! -f "dist/sphinx_unified_search-${REF_NAME}-py3-none-any.whl" ]; then
+            echo "Built version does not match tag ${REF_NAME}"
+            exit 1
+          fi
       - name: Upload pypi packages artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -64,4 +74,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          gh release create "${REF_NAME}" --generate-notes *.whl *.tar.gz
+          gh release create "${REF_NAME}" --generate-notes dist/*.whl dist/*.tar.gz
