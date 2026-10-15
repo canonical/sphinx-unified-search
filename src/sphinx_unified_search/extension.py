@@ -3,6 +3,7 @@ from pathlib import Path
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util import logging
 
+from .cache import autobuild_cache_dir
 from .merger import merge_indexes, write_searchindex
 from .metadata import write_project_mapping
 
@@ -100,9 +101,20 @@ def build_finished(app, exception):
         )
         return
 
+    cache_dir = None
+
+    if app.config.unified_search_cache_remote_indexes:
+        cache_dir = autobuild_cache_dir(Path(app.doctreedir))
+
+        logger.info(
+            "[unified-search] remote index session cache: %s",
+            cache_dir or "disabled (not an autobuild session)",
+        )
+
     merged, mappings = merge_indexes(
         searchindex,
         projects,
+        cache_dir=cache_dir,
     )
 
     write_searchindex(
@@ -135,6 +147,13 @@ def setup(app):
         "unified_search_projects",
         [],
         "html",
+    )
+
+    app.add_config_value(
+        "unified_search_cache_remote_indexes",
+        False,
+        "html",
+        types=[bool],
     )
 
     app.connect(
