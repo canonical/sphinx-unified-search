@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sphinx-unified-search"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Merge search indexes from multiple Sphinx documentation projects."
 readme = "README.md"
 license = { text = "Apache-2.0" }
