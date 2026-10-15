@@ -4,6 +4,7 @@ from pathlib import Path
 
 from sphinx.util import logging
 
+from .cache import searchindex_cache_path
 from .downloader import download_searchindex
 from .exceptions import SearchIndexError
 from .parser import parse_searchindex
@@ -153,7 +154,35 @@ def _own_docs_only(index: dict) -> tuple[dict, int]:
     return filtered, dropped
 
 
-def merge_indexes(local_index: Path, remotes: list[dict]):
+def _fetch_searchindex(remote: dict, cache_dir: Path | None) -> tuple[str, Path | None]:
+    """
+    Return the raw remote index, reusing a cached copy when available.
+
+    The returned path, if any, is where the caller should store the
+    index once it has parsed successfully; a download that cannot be
+    parsed is never cached, so the next build retries it.
+    """
+    if cache_dir is None:
+        return download_searchindex(remote), None
+
+    path = searchindex_cache_path(remote, cache_dir)
+
+    if path.exists():
+        logger.info(
+            "[unified-search] reusing cached index for '%s' from %s",
+            remote["name"],
+            path,
+        )
+        return path.read_text(encoding="utf-8"), None
+
+    return download_searchindex(remote), path
+
+
+def merge_indexes(
+    local_index: Path,
+    remotes: list[dict],
+    cache_dir: Path | None = None,
+):
     logger.info(
         "[unified-search] reading local index %s",
         local_index,
@@ -186,9 +215,13 @@ def merge_indexes(local_index: Path, remotes: list[dict]):
         )
 
         try:
-            raw = download_searchindex(remote)
+            raw, cache_path = _fetch_searchindex(remote, cache_dir)
 
             remote_index = parse_searchindex(raw)
+
+            if cache_path is not None:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(raw, encoding="utf-8")
 
             remote_index, dropped = _own_docs_only(remote_index)
 

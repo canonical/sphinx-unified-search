@@ -159,6 +159,26 @@ Repeat this for each private project included in `unified_search_projects` set.
 Once the required environment variables are set, build or serve the
 documentation as usual with `make html` or `make run`.
 
+### Fetch remote indexes once per live-preview session
+
+By default, every build downloads each remote `searchindex.js` again. With
+[sphinx-autobuild] (`make run`), that means a fresh download of every remote
+index on each rebuild, which slows down the edit-preview loop.
+
+Set the following in `conf.py` to download each remote index only once per
+`sphinx-autobuild` session and reuse it for later rebuilds:
+
+```python
+unified_search_cache_remote_indexes = True
+```
+
+The cache is scoped to the running `sphinx-autobuild` process and stored under
+the Sphinx doctree directory, so it is discarded when you restart the preview.
+Regular builds (`make html`, Read the Docs, CI) are unaffected and always fetch
+fresh indexes. Only successfully parsed downloads are cached, and the cache key
+covers the index URL and its resolved authentication, so a changed token or
+header forces a new download. Tokens themselves are never written to disk.
+
 ## Some things to note
 
 A few behaviors and limitations to be aware of before you publish a unified
@@ -214,3 +234,4 @@ environment variable named in `auth_token_env`.
 [issues]: https://github.com/canonical/sphinx-unified-search/issues
 [Sphinx]: https://www.sphinx-doc.org/en/master/
 [Read the Docs (RTD)]: https://about.readthedocs.com/
+[sphinx-autobuild]: https://github.com/sphinx-doc/sphinx-autobuild
