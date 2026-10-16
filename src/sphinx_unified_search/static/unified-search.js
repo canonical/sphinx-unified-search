@@ -121,16 +121,63 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   //
+  // Client-side settings written by the extension at build time
+  // (project filter on/off, name of the local project). A missing or
+  // unreadable file means "defaults", i.e. no filter.
+  //
+  let config = { filter: false, local_project: "" };
+
+  try {
+
+    const configUrl =
+      new URL(
+        contentRoot + "_static/unified_search_config.json",
+        window.location.href
+      ).href;
+
+    const response = await fetch(configUrl);
+
+    if (response.ok) {
+      config = { ...config, ...(await response.json()) };
+    }
+
+  } catch (err) {
+
+    console.warn(
+      "[unified-search] failed to load config, using defaults",
+      err
+    );
+  }
+
+  if (!config.local_project) {
+    config.local_project = "This project";
+  }
+
+  //
+  // A result can be hidden for two independent reasons: the extension
+  // dropped it (duplicate of a local page, unresolved remote), or the
+  // project filter excludes it. Track them separately so one never
+  // un-hides the other, and derive the visible state from both.
+  //
   // The HTML "hidden" attribute loses to any theme CSS that sets
   // "display" on result items, so hide with an inline style as well.
   //
-  function setHidden(result, hide) {
+  function applyVisibility(result) {
+    const hide =
+      result.dataset.unifiedSearchHidden === "true" ||
+      result.dataset.unifiedSearchFiltered === "true";
     result.hidden = hide;
     result.style.display = hide ? "none" : "";
   }
 
+  function setHidden(result, hide) {
+    result.dataset.unifiedSearchHidden = hide ? "true" : "false";
+    applyVisibility(result);
+  }
+
+  // True when the extension itself dropped the result (not the filter).
   function isHidden(result) {
-    return result.style.display === "none";
+    return result.dataset.unifiedSearchHidden === "true";
   }
 
   function isNamespaced(href) {
@@ -266,12 +313,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     context.textContent = message;
   }
 
-  async function patchSearchResults() {
-    await patchSearchResultsInner();
-    dedupeResults();
-  }
-
-  async function patchSearchResultsInner() {
+  //
+  // First pass (synchronous): rewrite remote links, label and tag every
+  // result with its project. Kept separate from the snippet fetches so
+  // that all results are tagged as soon as Sphinx finishes, without
+  // waiting on network requests.
+  //
+  function patchLinks() {
 
     const searchResults =
       document.querySelectorAll(
@@ -353,6 +401,9 @@ window.addEventListener("DOMContentLoaded", async () => {
           href
         );
 
+        result.dataset.unifiedSearchProject =
+          config.local_project;
+
         continue;
       }
 
@@ -379,6 +430,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       anchor.dataset.unifiedSearchRemote =
         info.docname;
 
+      result.dataset.unifiedSearchProject =
+        info.project;
+
       if (
         !anchor.textContent.startsWith(
           "[" + info.project + "]"
@@ -391,12 +445,33 @@ window.addEventListener("DOMContentLoaded", async () => {
           "] " +
           anchor.innerHTML;
       }
+    }
+  }
 
-      dedupeResults();
+  //
+  // Second pass (asynchronous): fetch a preview for every visible
+  // remote result. Results hidden by the project filter are still
+  // fetched, so unhiding them later is instant.
+  //
+  async function loadSnippets() {
 
-      if (isHidden(result)) {
+    for (const result of document.querySelectorAll("ul.search li")) {
+
+      const anchor =
+        result.querySelector("a");
+
+      if (
+        !anchor ||
+        !anchor.dataset.unifiedSearchRemote ||
+        anchor.dataset.unifiedSearchSnippet ||
+        isHidden(result)
+      ) {
         continue;
       }
+
+      anchor.dataset.unifiedSearchSnippet = "true";
+
+      const remoteUrl = anchor.href;
 
       //
       // Always attempt the snippet fetch, even for projects marked
@@ -468,6 +543,185 @@ window.addEventListener("DOMContentLoaded", async () => {
         );
       }
     }
+  }
+
+  //
+  // Project filter (unified_search_project_filter).
+  //
+  // Sphinx streams results in one at a time and only writes the
+  // "Search finished" summary once the last one is shown. The filter
+  // waits for that, so counts are final and nothing shifts while the
+  // list is still filling up. Filtering only hides rows: results are
+  // never removed, and their previews are still fetched.
+  //
+  const filterState = {
+    initialised: false,
+    selected: new Set(),
+  };
+
+  function searchFinished() {
+    const status =
+      document.querySelector(
+        "#search-results .search-summary"
+      );
+
+    return (
+      Boolean(status) &&
+      status.textContent.trim() !== ""
+    );
+  }
+
+  function projectOf(result) {
+    return result.dataset.unifiedSearchProject || "";
+  }
+
+  function initFilter() {
+
+    if (
+      !config.filter ||
+      filterState.initialised ||
+      !searchFinished()
+    ) {
+      return;
+    }
+
+    const list =
+      document.querySelector("ul.search");
+
+    if (!list) {
+      return;
+    }
+
+    filterState.initialised = true;
+
+    // Count visible results per project. Results the extension hid
+    // (duplicates, unresolved) are not counted.
+    const counts = new Map();
+
+    for (const result of list.querySelectorAll("li")) {
+      const project = projectOf(result);
+      if (!project || isHidden(result)) continue;
+      counts.set(project, (counts.get(project) || 0) + 1);
+    }
+
+    // Local project first, then remote projects in configured order.
+    const projects = [
+      config.local_project,
+      ...new Set(
+        [...lookupIndex.values()].map((info) => info.project)
+      ),
+      ...counts.keys(),
+    ].filter(
+      (name, i, all) => counts.has(name) && all.indexOf(name) === i
+    );
+
+    // Nothing to filter between.
+    if (projects.length < 2) {
+      return;
+    }
+
+    for (const name of new URLSearchParams(window.location.search).getAll("project")) {
+      if (projects.includes(name)) {
+        filterState.selected.add(name);
+      }
+    }
+
+    const bar = document.createElement("div");
+    bar.className = "unified-search-filter";
+    bar.setAttribute("role", "group");
+    bar.setAttribute("aria-label", "Filter results by project");
+
+    const label = document.createElement("span");
+    label.className = "unified-search-filter__label";
+    label.textContent = "Filter by project:";
+    bar.appendChild(label);
+
+    const chips = new Map();
+
+    function addChip(name, count) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "unified-search-chip";
+
+      const text = document.createElement("span");
+      text.textContent = name === null ? "All" : name;
+
+      const num = document.createElement("span");
+      num.className = "unified-search-chip__count";
+      num.textContent = "(" + count + ")";
+
+      chip.append(text, num);
+
+      chip.addEventListener("click", () => {
+        if (name === null) {
+          filterState.selected.clear();
+        } else if (filterState.selected.has(name)) {
+          filterState.selected.delete(name);
+        } else {
+          filterState.selected.add(name);
+        }
+        applyFilter();
+      });
+
+      chips.set(name, chip);
+      bar.appendChild(chip);
+    }
+
+    let total = 0;
+    for (const n of counts.values()) total += n;
+
+    addChip(null, total);
+    for (const name of projects) {
+      addChip(name, counts.get(name));
+    }
+
+    function applyFilter() {
+
+      const all = filterState.selected.size === 0;
+
+      for (const result of list.querySelectorAll("li")) {
+        const project = projectOf(result);
+        const filtered =
+          !all &&
+          project !== "" &&
+          !filterState.selected.has(project);
+
+        result.dataset.unifiedSearchFiltered = filtered ? "true" : "false";
+        applyVisibility(result);
+      }
+
+      for (const [name, chip] of chips) {
+        const pressed =
+          name === null ? all : filterState.selected.has(name);
+        chip.setAttribute("aria-pressed", pressed ? "true" : "false");
+      }
+
+      // Keep the selection in the URL so it survives reloads and can
+      // be shared. Does not trigger a new search.
+      const params = new URLSearchParams(window.location.search);
+      params.delete("project");
+      for (const name of filterState.selected) {
+        params.append("project", name);
+      }
+      const query = params.toString();
+      history.replaceState(
+        null,
+        "",
+        window.location.pathname +
+          (query ? "?" + query : "") +
+          window.location.hash
+      );
+    }
+
+    list.parentNode.insertBefore(bar, list);
+    applyFilter();
+  }
+
+  async function patchSearchResults() {
+    patchLinks();
+    dedupeResults();
+    initFilter();
+    await loadSnippets();
   }
 
   //

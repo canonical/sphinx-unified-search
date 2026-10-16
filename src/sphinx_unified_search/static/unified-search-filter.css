@@ -1,0 +1,49 @@
+/*
+ * sphinx-unified-search: project filter chips.
+ * Uses Furo / Canonical theme colour variables, with fallbacks for
+ * other themes.
+ */
+.unified-search-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.unified-search-filter__label {
+  font-size: 0.875rem;
+  color: var(--color-foreground-secondary, inherit);
+}
+
+.unified-search-chip {
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-background-border, currentColor);
+  border-radius: 999px;
+  background: var(--color-background-primary, transparent);
+  color: var(--color-foreground-primary, inherit);
+  cursor: pointer;
+}
+
+.unified-search-chip:hover {
+  border-color: var(--color-brand-primary, currentColor);
+}
+
+.unified-search-chip:focus-visible {
+  outline: 2px solid var(--color-brand-primary, currentColor);
+  outline-offset: 2px;
+}
+
+.unified-search-chip[aria-pressed="true"] {
+  background: #ed764d;
+  border-color: #ed764d;
+  color: #fff;
+}
+
+.unified-search-chip__count {
+  margin-left: 0.25em;
+  opacity: 0.75;
+}
