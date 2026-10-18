@@ -5,7 +5,7 @@ from sphinx.util import logging
 
 from .cache import autobuild_cache_dir
 from .merger import merge_indexes, write_searchindex
-from .metadata import write_project_mapping
+from .metadata import write_project_mapping, write_search_config
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,11 @@ def add_js_to_search_page(app, pagename, templatename, context, doctree):
     context["script_files"].append(
         "_static/unified-search.js"
     )
+
+    if app.config.unified_search_project_filter:
+        context.setdefault("css_files", []).append(
+            "_static/unified-search-filter.css"
+        )
 
 
 def build_finished(app, exception):
@@ -127,6 +132,17 @@ def build_finished(app, exception):
         mappings,
     )
 
+    write_search_config(
+        Path(app.outdir),
+        {
+            "filter": bool(app.config.unified_search_project_filter),
+            "local_project": (
+                app.config.unified_search_local_project_name
+                or app.config.project
+            ),
+        },
+    )
+
     logger.info(
         "[unified-search] merged index contains %d documents",
         len(merged["docnames"]),
@@ -154,6 +170,20 @@ def setup(app):
         False,
         "html",
         types=[bool],
+    )
+
+    app.add_config_value(
+        "unified_search_project_filter",
+        False,
+        "html",
+        types=[bool],
+    )
+
+    app.add_config_value(
+        "unified_search_local_project_name",
+        "",
+        "html",
+        types=[str],
     )
 
     app.connect(

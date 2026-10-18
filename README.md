@@ -159,6 +159,28 @@ Repeat this for each private project included in `unified_search_projects` set.
 Once the required environment variables are set, build or serve the
 documentation as usual with `make html` or `make run`.
 
+### Filter search results by project
+
+Add project filter chips to the search results page so visitors can narrow
+the results to one or more projects:
+
+```python
+unified_search_project_filter = True
+
+# Optional: label for this project's own results in the filter.
+# Defaults to Sphinx's `project` setting.
+unified_search_local_project_name = "My Docs"
+```
+
+When the search has finished, a "Filter by project" row appears above the
+results, with one chip per project that has results and the number of results
+next to it. Select one or more chips to show only those projects; select
+"All" (or deselect every chip) to show everything again. The filter only hides
+rows: results are not removed, and previews are still loaded for all of them.
+The selection is stored in the URL (`?q=term&project=ProjectA`), so it survives
+a reload and can be shared. The filter is off by default, and isn't shown when
+results come from only one project.
+
 ### Fetch remote indexes once per live-preview session
 
 By default, every build downloads each remote `searchindex.js` again. With

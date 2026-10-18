@@ -45,6 +45,6 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-sphinx_unified_search = ["static/*.js"]
+sphinx_unified_search = ["static/*.js", "static/*.css"]
 
 [tool.setuptools_scm]
