@@ -185,40 +185,42 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   //
-  // Identity of a page for de-duplication: its title plus the last
-  // segment of its path. Strips the "[project] " prefix we add.
+  // De-duplication of the SAME page indexed twice: once as a local
+  // result and once as a remote one. This only happens when the local
+  // site is itself listed in unified_search_projects.
   //
-  function pageKey(anchor, docPath) {
-    const title =
-      (anchor.textContent || "")
-        .replace(/^\[[^\]]*\]\s*/, "")
-        .trim()
-        .toLowerCase();
-    const leaf = normalize(docPath).split("/").pop();
-    return title + "|" + leaf;
-  }
-
+  // A page is identified by project + full docname, never by title or
+  // by the last path segment. Pages from different projects are always
+  // distinct, even when they share a title and a path (every Diataxis
+  // project has its own "tutorials/index" titled "Tutorials").
   //
-  // When the same page is indexed locally AND in a remote project,
-  // keep the local result and hide the remote copy. Safe to run
-  // repeatedly; results arrive progressively.
+  // The remote result is hidden only when it belongs to the local
+  // project (config.local_project) AND its full normalized docname
+  // equals that of a local result. Safe to run repeatedly; results
+  // arrive progressively.
   //
   function dedupeResults() {
     const results = [...document.querySelectorAll("ul.search li")];
-    const localKeys = new Set();
+    const localDocs = new Set();
 
     for (const result of results) {
       const a = result.querySelector("a");
-      if (a && !a.dataset.unifiedSearchRemote) {
-        localKeys.add(pageKey(a, a.getAttribute("href")));
-      }
+      if (!a || a.dataset.unifiedSearchRemote) continue;
+
+      const href = a.getAttribute("href");
+      if (isNamespaced(href)) continue;
+
+      localDocs.add(normalize(href));
     }
 
     for (const result of results) {
       const a = result.querySelector("a");
       if (!a || !a.dataset.unifiedSearchRemote) continue;
 
-      const dup = localKeys.has(pageKey(a, a.dataset.unifiedSearchRemote));
+      const dup =
+        result.dataset.unifiedSearchProject === config.local_project &&
+        localDocs.has(normalize(a.dataset.unifiedSearchRemote));
+
       if (dup && !isHidden(result)) {
         console.log(
           "[unified-search] hiding duplicate of local page:",
