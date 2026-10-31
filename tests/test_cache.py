@@ -188,6 +188,7 @@ def test_build_finished_wires_session_cache(tmp_path, monkeypatch, enabled):
             unified_search_cache_remote_indexes=enabled,
             unified_search_project_filter=False,
             unified_search_local_project_name="",
+            unified_search_preview_proxy="",
             project="Local",
         ),
         outdir=tmp_path,

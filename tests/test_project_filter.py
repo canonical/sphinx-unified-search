@@ -16,6 +16,7 @@ def _app(tmp_path, **config):
         "unified_search_cache_remote_indexes": False,
         "unified_search_project_filter": False,
         "unified_search_local_project_name": "",
+        "unified_search_preview_proxy": "",
         "project": "Sphinx Project",
     }
     defaults.update(config)
@@ -54,7 +55,11 @@ def _run_build_finished(monkeypatch, tmp_path, **config):
 
 def test_build_finished_filter_off_by_default(monkeypatch, tmp_path):
     cfg = _run_build_finished(monkeypatch, tmp_path)
-    assert cfg == {"filter": False, "local_project": "Sphinx Project"}
+    assert cfg == {
+        "filter": False,
+        "local_project": "Sphinx Project",
+        "preview_proxy": "",
+    }
 
 
 def test_build_finished_filter_on_with_custom_local_name(monkeypatch, tmp_path):
@@ -64,7 +69,7 @@ def test_build_finished_filter_on_with_custom_local_name(monkeypatch, tmp_path):
         unified_search_project_filter=True,
         unified_search_local_project_name="My Docs",
     )
-    assert cfg == {"filter": True, "local_project": "My Docs"}
+    assert cfg == {"filter": True, "local_project": "My Docs", "preview_proxy": ""}
 
 
 def _page_context(flag):
@@ -79,3 +84,19 @@ def _page_context(flag):
 def test_css_added_to_search_page_only_when_filter_enabled():
     assert "_static/unified-search-filter.css" in _page_context(True)["css_files"]
     assert _page_context(False)["css_files"] == []
+
+
+def test_preview_proxy_off_by_default():
+    app = Mock()
+    extension.setup(app)
+    registered = {c.args[0]: c.args[1] for c in app.add_config_value.call_args_list}
+    assert registered["unified_search_preview_proxy"] == ""
+
+
+def test_preview_proxy_url_written_to_client_config(monkeypatch, tmp_path):
+    cfg = _run_build_finished(
+        monkeypatch,
+        tmp_path,
+        unified_search_preview_proxy="http://127.0.0.1:8010/",
+    )
+    assert cfg["preview_proxy"] == "http://127.0.0.1:8010/"

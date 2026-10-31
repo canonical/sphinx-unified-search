@@ -34,6 +34,9 @@ test = [
   "sphinx-autobuild>=2024.2.4"
 ]
 
+[project.scripts]
+sphinx-unified-search-proxy = "sphinx_unified_search.preview_proxy:main"
+
 [project.urls]
 Homepage = "https://github.com/canonical/sphinx-unified-search"
 

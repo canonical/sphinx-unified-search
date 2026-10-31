@@ -125,7 +125,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   // (project filter on/off, name of the local project). A missing or
   // unreadable file means "defaults", i.e. no filter.
   //
-  let config = { filter: false, local_project: "" };
+  let config = { filter: false, local_project: "", preview_proxy: "" };
 
   try {
 
@@ -451,6 +451,27 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   //
+  // Optional local preview proxy (unified_search_preview_proxy). Used only
+  // when the docs are being viewed from this machine, so a deployed site
+  // never depends on it even if the setting is left in conf.py.
+  //
+  function previewFetchUrl(remoteUrl) {
+    const isLocal = ["localhost", "127.0.0.1", "[::1]"].includes(
+      window.location.hostname
+    );
+
+    if (!config.preview_proxy || !isLocal) {
+      return remoteUrl;
+    }
+
+    return (
+      config.preview_proxy.replace(/\/*$/, "/") +
+      "?url=" +
+      encodeURIComponent(remoteUrl)
+    );
+  }
+
+  //
   // Second pass (asynchronous): fetch a preview for every visible
   // remote result. Results hidden by the project filter are still
   // fetched, so unhiding them later is instant.
@@ -486,7 +507,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       try {
 
         const response =
-          await fetch(remoteUrl);
+          await fetch(previewFetchUrl(remoteUrl));
 
         if (!response.ok) {
           throw new Error(

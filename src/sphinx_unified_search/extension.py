@@ -140,6 +140,7 @@ def build_finished(app, exception):
                 app.config.unified_search_local_project_name
                 or app.config.project
             ),
+            "preview_proxy": app.config.unified_search_preview_proxy,
         },
     )
 
@@ -181,6 +182,15 @@ def setup(app):
 
     app.add_config_value(
         "unified_search_local_project_name",
+        "",
+        "html",
+        types=[str],
+    )
+
+    # Optional, off by default. URL of a local preview proxy (see
+    # sphinx-unified-search-proxy). Only used by pages served from localhost.
+    app.add_config_value(
+        "unified_search_preview_proxy",
         "",
         "html",
         types=[str],
