@@ -39,6 +39,7 @@ sphinx-unified-search-proxy = "sphinx_unified_search.preview_proxy:main"
 
 [project.urls]
 Homepage = "https://github.com/canonical/sphinx-unified-search"
+Documentation = "https://canonical-sphinx-unified-search.readthedocs-hosted.com/"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
