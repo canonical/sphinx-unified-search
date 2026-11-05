@@ -1,22 +1,26 @@
 # How to set up the preview proxy for local builds
 
 When you preview your docs locally, for example at `http://127.0.0.1:8000`,
-result previews usually fail to load. This guide shows how to run a small
-local proxy so they work, including for private projects.
+remote result previews may fail to load. Browsers block access to remote
+responses unless allowed by Cross-Origin Resource Sharing (CORS) headers.
+Private sites may also require a login.
 
-For why previews fail and how the proxy works, see
-{doc}`Preview proxy </explanation/preview-proxy>`. For all proxy options, see
-the {doc}`preview proxy CLI reference </reference/preview-proxy-cli>`.
+This guide shows how to run an optional local proxy to load these previews,
+including for private projects. It is for local development only and doesn't
+change published sites.
 
-The proxy is optional and for local development only. It does nothing unless
-you both set `unified_search_preview_proxy` in `conf.py` and start the proxy
-yourself. To turn it off, remove the setting or don't start the proxy.
+For background, see {doc}`The preview proxy </explanation/preview-proxy>`.
+For options, see the
+{doc}`preview proxy CLI reference </reference/preview-proxy-cli>`.
 
 ## Set up the proxy
 
-### Step 1. Enable it in `conf.py`
+Configure the proxy address, add cookies if you need private project previews,
+then start the docs and proxy and check that previews load.
 
-```python
+### Step 1. Enable the proxy in `conf.py`
+
+```{code-block} python
 import os
 
 # Local builds only. Read the Docs sets READTHEDOCS, so the setting is skipped
@@ -25,17 +29,18 @@ if not os.environ.get("READTHEDOCS"):
     unified_search_preview_proxy = "http://127.0.0.1:8010/"
 ```
 
-The address is where the proxy listens. The proxy reads it from `conf.py`, so
-you configure it only once.
+The address is where the proxy listens and should be different from the address
+serving your local docs / running live rebuilds. The proxy reads it from
+`conf.py`, so you configure it only once.
 
-### Step 2. Add cookies for private projects
+### Step 2. Add cookies for private RTD projects
 
 Skip this step if all your projects are public.
 
 In `unified_search_projects`, add `preview_cookie_env` to each private project.
 This is the _name_ of an environment variable, not the cookie itself:
 
-```python
+```{code-block} python
 unified_search_projects = [
     # Public project: nothing to add. The proxy fetches it without a cookie.
     {
@@ -56,18 +61,18 @@ unified_search_projects = [
 ]
 ```
 
-Put the cookie value in a file that isn't committed, for example
+Put the cookie value in a file that _is not_ committed, for example
 `_dev/proxy.env`, and add that file to your `.gitignore`. Use single quotes,
 because cookies contain `;`:
 
-```shell
-PROJECTA_COOKIE='sessionid=...; csrftoken=...'
+```{code-block} shell
+PROJECTA_COOKIE='betasessionid=<value copied from browser>'
 ```
 
 To get the value:
 
 1. Sign in to the private docs in your browser.
-1. Open the developer tools and select the Network tab.
+1. Open the developer tools and select the Network / Storage tab.
 1. Click a page request and copy its `Cookie` request header.
 
 Treat it like a password. Cookies expire, so refresh the value when previews
@@ -82,55 +87,56 @@ For several private projects on different domains, give each project its own
 `preview_cookie_env` with its own variable names. The proxy picks the project
 whose `base_url` matches each page.
 
-### Step 3. Start the docs and the proxy in two terminals
+### Step 3. Start the docs and the proxy in two separate terminals
 
 Run both from the directory that contains `conf.py`.
 
-Terminal 1, the docs:
+Terminal 1, serve or build the docs:
 
-```shell
+```{code-block} shell
 make run
 ```
 
 Terminal 2, the proxy:
 
-```shell
+```{code-block} shell
 set -a; . _dev/proxy.env; set +a    # load the cookie variables (private projects only)
 sphinx-unified-search-proxy
 ```
 
-If the command isn't found, run it from your docs virtual environment, for
-example `.venv/bin/sphinx-unified-search-proxy`. Leave both terminals open.
-You can start them in either order.
+If the command isn't found, run it from a virtual environment, for example
+`.venv/bin/sphinx-unified-search-proxy`. Leave both terminals open. You can
+start them in either order.
 
 The proxy prints the address it listens on, and one line per project showing
 which cookie variables it will use. It warns about variables that aren't set,
 and it never prints the cookie values:
 
-```text
+```{code-block} text
 unified-search preview proxy on http://127.0.0.1:8010/
   https://ubuntu.com/kernel/docs/  (Kernel; no cookie)
   https://documentation.ubuntu.com/projecta/  (ProjectA; cookie from $PROJECTA_COOKIE)
 ```
 
-### Step 4. Check that it works
+### Step 4. Verify that the proxy works
 
 Open the search page, for example `http://127.0.0.1:8000/search/?q=kernel`,
-and hard-refresh with Ctrl+Shift+R so the browser picks up the new setting.
+and hard-refresh with `Ctrl+Shift+R` so the browser picks up the new setting.
 Remote results now show previews. For each one, the proxy prints a line such
 as `[200] https://ubuntu.com/kernel/docs/...`.
 
 If you changed `conf.py` while `make run` was already running, restart
 `make run` first.
 
-## Start both with one command
+## Start both with one command (optional)
 
-Add a target like this to the Makefile where you keep your own targets (not
-one that the Sphinx Stack overwrites when you update), and add
-`run-with-proxy` to `.PHONY`. It uses variables defined by the Sphinx Stack's
-Makefile:
+You can keep running the docs and proxy in separate terminals. If you prefer
+to start both with one command, you can add a Makefile target instead.
 
-```make
+Add the target below to the Makefile and add `run-with-proxy` to `.PHONY`. It
+uses variables defined by the Sphinx Stack's Makefile:
+
+```{code-block} make
 run-with-proxy: install
 	@set -a; test ! -f $(DEV_DIR)/proxy.env || . $(DEV_DIR)/proxy.env; set +a; \
 	$(DOCS_VENVDIR)/bin/sphinx-unified-search-proxy --conf-dir "$(DOCS_SOURCEDIR)" & \
@@ -139,9 +145,9 @@ run-with-proxy: install
 ```
 
 `make run-with-proxy` starts the proxy, runs `make run`, and stops the proxy
-when you press Ctrl+C.
+when you press `Ctrl+C`.
 
-## Proxy a site that isn't in your project list
+## Proxy a site that is not in your project list
 
 To proxy a site that's not in `unified_search_projects`, or to accept requests
 from a non-loopback origin, use `--allow` and `--allow-origin`. See the
@@ -150,7 +156,6 @@ from a non-loopback origin, use `--allow` and `--allow-origin`. See the
 ## Troubleshooting
 
 (how-to-preview-proxy-troubleshooting)=
-
 
 | What you see | Likely cause and fix |
 | --- | --- |

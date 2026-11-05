@@ -1,4 +1,4 @@
-# Configuration reference
+# Configuration options
 
 All settings go in your project's `conf.py`. For task-oriented guidance, see
 {doc}`Configure unified search </how-to/configure-unified-search>`.
@@ -10,28 +10,73 @@ project documentation. Verify them against the source before publishing.
 
 ## Summary
 
-| Setting | Type | Default | Purpose |
-| --- | --- | --- | --- |
-| `unified_search_projects` | list of dict | none | Remote projects to include in the search |
-| `unified_search_project_filter` | bool | `False` | Show project filter chips on the results page |
-| `unified_search_local_project_name` | str | Sphinx's `project` setting | Label for this project's results in the filter |
-| `unified_search_cache_remote_indexes` | bool | `False` | Download each remote index once per `sphinx-autobuild` session |
-| `unified_search_preview_proxy` | str (URL) | unset | Address of the local preview proxy |
+```{list-table}
+:header-rows: 1
 
-## `unified_search_projects`
+* - Setting
+  - Type
+  - Default
+  - Purpose
+* - `unified_search_projects`
+  - list of dict
+  - none
+  - Remote projects to include in the search
+* - `unified_search_project_filter`
+  - bool
+  - `False`
+  - Show project filter chips on the results page
+* - `unified_search_local_project_name`
+  - str
+  - Sphinx's `project` setting
+  - Label for this project's results in the filter
+* - `unified_search_cache_remote_indexes`
+  - bool
+  - `False`
+  - Download each remote index once per `sphinx-autobuild` session
+* - `unified_search_preview_proxy`
+  - str (URL)
+  - unset
+  - Address of the local preview proxy
+```
+
+## unified_search_projects
 
 A list of dictionaries, one per project.
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `name` | Yes | Unique identifier for the project. For results from projects other than the host project, this value is appended to the page title in the search results. |
-| `base_url` | Yes | Base URL of the documentation. Used as the destination when a user clicks a result, and (with the preview proxy) as the allowlist for fetched pages. |
-| `searchindex_url` | Yes | URL of the project's `searchindex.js`. |
-| `auth_token_env` | Private projects | Name of the environment variable containing the RTD HTTP header token. Read at build time. |
-| `auth_scheme` | Private projects | Authorization scheme used in the HTTP `Authorization` header. For RTD HTTP header tokens, use `"Token"`. |
-| `preview_cookie_env` | No | Name(s) of environment variable(s) holding cookies for local previews through the preview proxy. See {ref}`below <ref-configuration-preview-cookie-env>`. |
+```{list-table}
+:header-rows: 1
 
-```python
+* - Key
+  - Required
+  - Description
+* - `name`
+  - Yes
+  - Unique identifier for the project. For results from projects other than
+    the host project, this value is appended to the page title in the search
+    results.
+* - `base_url`
+  - Yes
+  - Base URL of the documentation. Used as the destination when a user clicks
+    a result, and (with the preview proxy) as the allowlist for fetched pages.
+* - `searchindex_url`
+  - Yes
+  - URL of the project's `searchindex.js`.
+* - `auth_token_env`
+  - Private projects
+  - Name of the environment variable containing the RTD HTTP header token.
+    Read at build time.
+* - `auth_scheme`
+  - Private projects
+  - Authorization scheme used in the HTTP `Authorization` header. For RTD
+    HTTP header tokens, use `"Token"`.
+* - `preview_cookie_env`
+  - No
+  - Name(s) of environment variable(s) holding cookies for local previews
+    through the preview proxy. See
+    {ref}`below <ref-configuration-preview-cookie-env>`.
+```
+
+```{code-block} python
 unified_search_projects = [
     {
         "name": "ProjectA",
@@ -53,7 +98,7 @@ Holds environment variable _names_, never cookie values, so no secrets end up
 in `conf.py`. It is only used by the preview proxy during local development.
 The extension ignores it during the build. It accepts three forms:
 
-```python
+```{code-block} python
 # 1. One variable holding the whole Cookie header value
 "preview_cookie_env": "PROJECTA_COOKIE",            # PROJECTA_COOKIE="sessionid=abc; csrftoken=def"
 
@@ -62,25 +107,35 @@ The extension ignores it during the build. It accepts three forms:
 "preview_cookie_env": ["PROJECTA_SESSION", "PROJECTA_EXTRA"],
 
 # 3. One variable per cookie, each holding only that cookie's value
-"preview_cookie_env": {"sessionid": "PROJECTA_SESSION", "csrftoken": "PROJECTA_CSRF"},
+"preview_cookie_env": {"betasessionid": "PROJECTA_SESSION", "csrftoken": "PROJECTA_CSRF"},
 ```
 
 A pasted `Cookie:` prefix in a value is ignored. A project's cookies are only
 sent to that project.
 
-## `unified_search_project_filter`
+## unified_search_project_filter
+
+(ref-configuration-unified-search-project-filter)=
+
 
 When `True`, a "Filter by project" row of chips appears above the search
-results. Off by default. Not shown when results come from only one project.
-See {ref}`Search page reference <ref-compatibility-css-classes>` for the CSS classes
-and URL parameter.
+results. The filter is off by default and isn't shown when results come from
+only one project. It only hides result rows; it doesn't remove them, and
+previews are still loaded for all results.
 
-## `unified_search_local_project_name`
+The selected projects are stored in the URL (for example,
+`?q=term&project=ProjectA`), so the selection survives a reload and can be
+shared.
+
+See {ref}`Search page reference <ref-compatibility-css-classes>` for the CSS
+classes and URL parameter.
+
+## unified_search_local_project_name
 
 Label for this project's own results in the filter. Defaults to Sphinx's
 `project` setting.
 
-## `unified_search_cache_remote_indexes`
+## unified_search_cache_remote_indexes
 
 (ref-configuration-unified-search-cache-remote-indexes)=
 
@@ -98,7 +153,7 @@ When `True`, each remote `searchindex.js` is downloaded once per
   changed token or header forces a new download.
 - Tokens themselves are never written to disk.
 
-## `unified_search_preview_proxy`
+## unified_search_preview_proxy
 
 Address where the local preview proxy listens, for example
 `"http://127.0.0.1:8010/"`. The proxy reads this value from `conf.py`. The

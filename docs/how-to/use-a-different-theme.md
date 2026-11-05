@@ -1,14 +1,20 @@
-# How to use a different theme
+# How to use a custom theme
 
 `sphinx-unified-search` is tested with Sphinx Stack 2.0 (Canonical Sphinx
 theme). Other themes and Sphinx Stack versions aren't tested or supported yet.
 Search can fail, or the results page can look wrong, unless you make changes.
-This guide shows how to check what's wrong and fix the most common issue,
-the look of the project filter.
 
-To understand what the extension depends on, see
-{doc}`Compatibility </reference/compatibility>` and
-{doc}`How it works </explanation/how-it-works>`.
+This guide shows how to check what's wrong and fix the most common issue, the
+look of the (optional) project filter.
+
+```{seealso}
+- To check a theme's integration requirements, see the
+{doc}`compatibility reference </reference/compatibility>`.
+- For the reasons behind the extension's compatibility requirements, see
+{doc}`How unified search works </explanation/how-it-works>`.
+- To enable or configure the project filter, see
+{doc}`Configure unified search </how-to/configure-unified-search>`.
+```
 
 ## Check what the extension found
 
@@ -23,13 +29,13 @@ they look wrong in your theme, override their styles in your own CSS file.
 
 Add a stylesheet to your docs:
 
-```python
+```{code-block} python
 # conf.py
 html_static_path = ["_static"]
 html_css_files = ["unified-search-custom.css"]
 ```
 
-```css
+```{code-block} css
 /* _static/unified-search-custom.css */
 body .unified-search-chip {
   border: 1px solid #888;

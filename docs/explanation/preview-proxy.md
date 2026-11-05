@@ -1,5 +1,8 @@
 # The preview proxy
 
+The preview proxy lets your browser load remote search result previews during
+local development. This page explains why it is needed and its limitations.
+
 ## Why it exists
 
 When you preview your docs locally, for example at `http://127.0.0.1:8000`,
@@ -14,7 +17,7 @@ for local development. The browser asks the proxy for the remote page, the
 proxy fetches it for you (with your cookies, if the project is private), and
 the proxy answers with the CORS header the browser needs:
 
-```text
+```{code-block} text
 browser (127.0.0.1:8000) --> proxy (127.0.0.1:8010) --> remote docs site
                          <-- page + CORS header   <--
 ```

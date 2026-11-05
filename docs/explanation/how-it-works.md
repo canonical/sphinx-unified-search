@@ -1,7 +1,11 @@
-# How unified search works
+# How Sphinx unified search works
 
-`sphinx-unified-search` lets visitors search several Sphinx sites from one
+`sphinx-unified-search` lets users search several Sphinx sites from one
 search box, without a separate search service.
+
+```{figure} /_assets/sphinx-unified-search-how-it-works.png
+:alt: Diagram showing how local and remote search indexes feed into browser search results. Unified search at build time and in the browser.
+```
 
 ## Build time: merging indexes
 
@@ -32,7 +36,6 @@ preview for each remote result by fetching the remote page.
 
 (exp-how-it-works-private-projects-and-previews)=
 
-
 Private projects involve two separate kinds of access:
 
 - **Build time.** The extension downloads the private `searchindex.js` using
@@ -61,13 +64,31 @@ whose titles or headings contain confidential information.
 
 (exp-how-it-works-why-other-themes-can-differ)=
 
+The extension adds cross-project behavior to Sphinx's standard search page; it
+doesn't provide a separate search page or search engine. As a result, it
+depends on the markup and JavaScript that the standard page provides. It reads
+results from Sphinx's `ul.search` list. When the project filter is enabled, it
+also waits for `#search-results .search-summary` before counting results, so
+the counts are final. If a theme changes those elements, the extension may not
+be able to read the results or initialize the filter. The extension also adds
+its scoring behavior to `window.Scorer`, the interface used by Sphinx's search
+scripts. If a theme replaces those scripts with a different search interface,
+the extension's scoring behavior may not integrate with it.
 
-The extension doesn't replace Sphinx's search. It hooks into the standard
-search page, so it relies on that page's markup, on Sphinx's `Scorer`, and on
-a few conventions of the remote sites (`dirhtml` URLs, a `<main>` element).
-It also styles the filter using Canonical Sphinx theme colors. A theme that
-replaces the search page or its JavaScript with its own search UI isn't
-compatible. The specific dependencies are listed in the
-{ref}`compatibility reference <ref-compatibility-what-the-extension-depends-on>`,
-and {doc}`Use a different theme </how-to/use-a-different-theme>` shows how to
-diagnose and fix issues.
+Other dependencies affect only particular parts of the experience. The project
+filter uses CSS variables from the Canonical Sphinx theme, so a different theme
+can leave the filter chips with incorrect colors or poor contrast even when
+search works. Remote result links assume the `dirhtml` URL format
+(`<base_url><docname>/`); if a remote project uses the default `html` builder,
+its `page.html` URLs don't match that format. For previews, the extension reads
+text from a remote page's `<main>` element (or `[role="main"]`). If neither is
+present, it falls back to `<body>`, which can include navigation text.
+
+These are separate integration points, so a theme or remote site's changes can
+affect search, filter styling, links, or previews independently. The extension
+also runs only with HTML builders; builders such as `latex` and `epub` are
+skipped.
+
+The {ref}`compatibility reference <ref-compatibility-what-the-extension-depends-on>`
+lists each dependency. {doc}`Use a different theme </how-to/use-a-different-theme>`
+shows how to diagnose and fix common issues.

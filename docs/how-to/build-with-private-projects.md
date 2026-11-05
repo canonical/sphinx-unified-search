@@ -9,7 +9,7 @@ Before you start, add the private project to `unified_search_projects` with
 
 ## Create an HTTP header token
 
-For each private project:
+For each private RTD project:
 
 1. Open the project's Read the Docs settings.
 1. Go to "Sharing" and "Add share".
@@ -20,7 +20,7 @@ For each private project:
    versions that will be used by `sphinx-unified-search`.
 
 Copy the generated token and store it as a secret environment variable in the
-RTD project that is _building_ the unified search.
+host RTD project that is _building_ the unified search.
 
 For example, if "PROJECT B" wants to add the `searchindex.js` from "PROJECT A"
 to its search results, generate the HTTP header token in PROJECT A, and add it
@@ -34,7 +34,7 @@ variables named by the `auth_token_env` entries in `unified_search_projects`.
 
 For example, if your remote project uses this config:
 
-```python
+```{code-block} python
 {
     "auth_token_env": "PROJECTA_DOCS_TOKEN",
     ...
@@ -43,7 +43,7 @@ For example, if your remote project uses this config:
 
 Export the corresponding token before building:
 
-```shell
+```{code-block} shell
 export PROJECTA_DOCS_TOKEN="<token>"
 ```
 
@@ -53,6 +53,12 @@ Once the variables are set, build or serve the documentation as usual with
 `make html` or `make run`.
 
 ## Build the docs in GitHub Actions
+
+Add the token as an Actions secret in the GitHub repository that runs the
+documentation build. In that repository, open **Settings > Secrets and
+variables > Actions** and create a repository secret. Set its name to the same
+value as `auth_token_env` (for example, `PROJECTA_DOCS_TOKEN`) and its value to
+the HTTP header token.
 
 Adding a secret to a repository doesn't automatically expose it to every
 workflow run. Each job that needs it must reference it explicitly.
@@ -64,7 +70,7 @@ token can therefore fail in CI, or silently skip the private index.
 
 To fix this, pass the secret through in the calling workflow:
 
-```yaml
+```{code-block} yaml
 jobs:
   build-docs:
     uses: ./.github/workflows/build-docs.yml
