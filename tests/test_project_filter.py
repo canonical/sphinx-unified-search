@@ -40,6 +40,7 @@ def test_options_registered_with_safe_defaults():
     registered = {c.args[0]: c.args[1] for c in app.add_config_value.call_args_list}
     assert registered["unified_search_project_filter"] is False
     assert registered["unified_search_local_project_name"] == ""
+    assert registered["unified_search_theme"] == "sphinx-stack-2.0"
 
 
 def _run_build_finished(monkeypatch, tmp_path, **config):
@@ -72,9 +73,12 @@ def test_build_finished_filter_on_with_custom_local_name(monkeypatch, tmp_path):
     assert cfg == {"filter": True, "local_project": "My Docs", "preview_proxy": ""}
 
 
-def _page_context(flag):
+def _page_context(flag, theme="sphinx-stack-2.0"):
     app = SimpleNamespace(
-        config=SimpleNamespace(unified_search_project_filter=flag)
+        config=SimpleNamespace(
+            unified_search_project_filter=flag,
+            unified_search_theme=theme,
+        )
     )
     ctx = {"script_files": [], "css_files": []}
     extension.add_js_to_search_page(app, "search", "search.html", ctx, None)
@@ -84,6 +88,16 @@ def _page_context(flag):
 def test_css_added_to_search_page_only_when_filter_enabled():
     assert "_static/unified-search-filter.css" in _page_context(True)["css_files"]
     assert _page_context(False)["css_files"] == []
+
+
+def test_css_added_respects_theme_setting():
+    assert "_static/unified-search-filter.css" in _page_context(True, "sphinx-stack-2.0")["css_files"]
+    assert "_static/unified-search-filter-stack-3.0.css" in _page_context(True, "sphinx-stack-3.0")["css_files"]
+    assert "_static/unified-search-filter-ulwazi.css" in _page_context(True, "ulwazi")["css_files"]
+
+
+def test_css_added_falls_back_for_unknown_theme():
+    assert "_static/unified-search-filter.css" in _page_context(True, "unknown-theme")["css_files"]
 
 
 def test_preview_proxy_off_by_default():

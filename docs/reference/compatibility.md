@@ -11,16 +11,19 @@ site requirements for `sphinx-unified-search`.
 * - Your setup
   - Status
 * - Sphinx Stack 2.0 (Canonical Sphinx theme)
-  - Supported. Works without changes.
-* - Other Sphinx Stack versions, including 3.0 and its default Ulwazi theme
-  - Not tested. May need changes.
+  - Supported out of the box (`unified_search_theme = "sphinx-stack-2.0"`).
+* - Sphinx Stack 3.0
+  - Supported out of the box (`unified_search_theme = "sphinx-stack-3.0"`).
+* - Ulwazi theme
+  - Supported out of the box (`unified_search_theme = "ulwazi"`).
 * - Any other Sphinx theme
   - Not tested. May fail, or need custom CSS.
 ```
 
 `sphinx-unified-search` is developed and tested against documentation projects
 based on [Canonical's Sphinx Stack 2.0], which uses the Canonical Sphinx theme
-(loaded through the `canonical_sphinx` extension).
+(loaded through the `canonical_sphinx` extension), Sphinx Stack 3.0, and the
+Ulwazi theme.
 
 ## What the extension depends on
 

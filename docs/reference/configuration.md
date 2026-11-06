@@ -25,6 +25,10 @@ project documentation. Verify them against the source before publishing.
   - bool
   - `False`
   - Show project filter chips on the results page
+* - `unified_search_theme`
+  - str
+  - `"sphinx-stack-2.0"`
+  - Theme styling preset (`"sphinx-stack-2.0"`, `"sphinx-stack-3.0"`, or `"ulwazi"`)
 * - `unified_search_local_project_name`
   - str
   - Sphinx's `project` setting
@@ -112,6 +116,14 @@ The extension ignores it during the build. It accepts three forms:
 
 A pasted `Cookie:` prefix in a value is ignored. A project's cookies are only
 sent to that project.
+
+## unified_search_theme
+
+Specifies the styling preset for the project selector filter chips.
+Defaults to `"sphinx-stack-2.0"`. Supported values:
+- `"sphinx-stack-2.0"`: Default Canonical Sphinx Stack 2.0 palette (`#ed764d`).
+- `"sphinx-stack-3.0"`: Canonical Sphinx Stack 3.0 styling.
+- `"ulwazi"`: Canonical Vanilla Framework tokens and Ubuntu orange accent (`#e95420`).
 
 ## unified_search_project_filter
 

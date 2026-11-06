@@ -23,7 +23,7 @@ service, and no per-query cost.
 ## Features
 
 - Builds on the standard Sphinx search page. Supported and tested with
-  Sphinx Stack 2.0
+  Sphinx Stack 2.0, Sphinx Stack 3.0, and Ulwazi
 - No JavaScript customization required on supported setups
 - No external search service required
 - Preserves the standard Sphinx search UI

@@ -1,8 +1,9 @@
 # How to use a custom theme
 
-`sphinx-unified-search` is tested with Sphinx Stack 2.0 (Canonical Sphinx
-theme). Other themes and Sphinx Stack versions aren't tested or supported yet.
-Search can fail, or the results page can look wrong, unless you make changes.
+`sphinx-unified-search` includes built-in styling for `sphinx-stack-2.0` (default),
+`sphinx-stack-3.0`, and `ulwazi`.
+
+For other custom themes, search can fail or the results page can look wrong unless you make changes.
 
 This guide shows how to check what's wrong and fix the most common issue, the
 look of the (optional) project filter.
@@ -15,6 +16,16 @@ look of the (optional) project filter.
 - To enable or configure the project filter, see
 {doc}`Configure unified search </how-to/configure-unified-search>`.
 ```
+
+## Switch theme preset
+
+To switch the styling preset in `conf.py`:
+
+```{code-block} python
+unified_search_theme = "ulwazi"  # or "sphinx-stack-3.0", "sphinx-stack-2.0"
+```
+
+When omitted, `unified_search_theme` defaults to `"sphinx-stack-2.0"`.
 
 ## Check what the extension found
 

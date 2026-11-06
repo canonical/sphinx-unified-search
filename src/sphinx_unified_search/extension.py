@@ -9,6 +9,13 @@ from .metadata import write_project_mapping, write_search_config
 
 logger = logging.getLogger(__name__)
 
+KNOWN_THEMES = {
+    "sphinx-stack-2.0": "unified-search-filter.css",
+    "sphinx-stack-3.0": "unified-search-filter-stack-3.0.css",
+    "ulwazi": "unified-search-filter-ulwazi.css",
+}
+DEFAULT_THEME = "sphinx-stack-2.0"
+
 
 def add_assets(app):
     static_dir = (
@@ -48,9 +55,10 @@ def add_js_to_search_page(app, pagename, templatename, context, doctree):
     )
 
     if app.config.unified_search_project_filter:
-        context.setdefault("css_files", []).append(
-            "_static/unified-search-filter.css"
-        )
+        theme_setting = getattr(app.config, "unified_search_theme", DEFAULT_THEME) or DEFAULT_THEME
+        theme_key = theme_setting.strip().lower()
+        css_name = KNOWN_THEMES.get(theme_key, KNOWN_THEMES[DEFAULT_THEME])
+        context.setdefault("css_files", []).append(f"_static/{css_name}")
 
 
 def build_finished(app, exception):
@@ -183,6 +191,13 @@ def setup(app):
     app.add_config_value(
         "unified_search_local_project_name",
         "",
+        "html",
+        types=[str],
+    )
+
+    app.add_config_value(
+        "unified_search_theme",
+        "sphinx-stack-2.0",
         "html",
         types=[str],
     )
