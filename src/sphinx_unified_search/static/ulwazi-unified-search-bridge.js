@@ -2,20 +2,23 @@
  * Compatibility bridge for sphinx-unified-search + Ulwazi theme.
  * 
  * Fixes issues when both sphinx-unified-search and Ulwazi's search-breadcrumbs.js
- * are active simultaneously. The main problem: breadcrumbs.js injects breadcrumbs
- * into results that contain __unified__ namespace URLs (internal merged index paths),
- * which should never be visible to users.
+ * are active simultaneously. Primary issues:
+ * 1. Breadcrumbs.js injects breadcrumbs into __unified__ namespace results
+ *    (internal merged index paths that should never be visible)
+ * 2. Breadcrumbs.js doesn't respect unified-search.js hidden/filtered state
+ * 3. Layout becomes messy with breadcrumbs + filter chips + snippets competing
  * 
  * This bridge:
- * 1. Removes breadcrumbs from results containing __unified__ namespace
- * 2. Removes breadcrumbs from results unified-search.js has hidden
- * 3. Ensures docname data attribute is preserved for remaining breadcrumbs
+ * 1. Removes ALL breadcrumbs from results with __unified__ in any URL
+ * 2. Removes breadcrumbs from results hidden/filtered by unified-search.js
+ * 3. Removes entire result items that are __unified__ namespaced
+ * 4. Preserves docname data attribute for valid results
  */
 
 (function() {
   'use strict';
 
-  function cleanupProblematicBreadcrumbs() {
+  function cleanupMessyResults() {
     var results = document.querySelectorAll('#search-results ul.search li');
     
     results.forEach(function(li) {
@@ -25,14 +28,24 @@
       var href = anchor.getAttribute('href');
       if (!href) return;
       
-      // Remove breadcrumbs from results that:
-      // 1. Contain __unified__ namespace (internal merged index paths)
-      // 2. Are marked as hidden/filtered by unified-search.js
-      var isNamespaced = href.includes('__unified__');
+      // Check for __unified__ namespace anywhere in the result
+      // This includes:
+      // - href itself: __unified__/...
+      // - breadcrumb links: pointing to __unified__/...
+      var hasUnifiedNamespace = href.includes('__unified__');
+      
+      // Check if result is marked as hidden/filtered by unified-search.js
       var isFiltered = li.dataset.unifiedSearchFiltered === 'true';
       
-      if (isNamespaced || isFiltered) {
-        // Remove any breadcrumb nav from this result
+      // If result contains __unified__ namespace, remove it entirely
+      // These are internal merged index paths that should never be shown
+      if (hasUnifiedNamespace) {
+        li.remove();
+        return;
+      }
+      
+      // If result is filtered/hidden by unified-search, clean up breadcrumbs
+      if (isFiltered) {
         var breadcrumb = li.querySelector('.search-result-breadcrumb');
         if (breadcrumb) {
           breadcrumb.remove();
@@ -51,20 +64,19 @@
     });
   }
 
-  // Run cleanup after DOM is ready
+  // Run cleanup after both unified-search.js and search-breadcrumbs.js have finished
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      // Wait for both unified-search.js and search-breadcrumbs.js to run
-      setTimeout(cleanupProblematicBreadcrumbs, 500);
+      setTimeout(cleanupMessyResults, 500);
     });
   } else {
-    setTimeout(cleanupProblematicBreadcrumbs, 500);
+    setTimeout(cleanupMessyResults, 500);
   }
 
-  // Re-run periodically to catch lazy-loaded or dynamically added results
-  var cleanupInterval = setInterval(cleanupProblematicBreadcrumbs, 1000);
+  // Re-run periodically to catch dynamically added results
+  var cleanupInterval = setInterval(cleanupMessyResults, 1000);
   
-  // Stop after 30 seconds to avoid unnecessary overhead
+  // Stop after 30 seconds
   setTimeout(function() {
     clearInterval(cleanupInterval);
   }, 30000);
