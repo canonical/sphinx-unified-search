@@ -1,51 +1,71 @@
 /**
  * Compatibility bridge for sphinx-unified-search + Ulwazi theme.
  * 
- * When both sphinx-unified-search and Ulwazi's search-breadcrumbs.js are active,
- * they conflict on DOM modifications, causing strange search results.
+ * Fixes issues when both sphinx-unified-search and Ulwazi's search-breadcrumbs.js
+ * are active simultaneously. The main problem: breadcrumbs.js injects breadcrumbs
+ * into results that contain __unified__ namespace URLs (internal merged index paths),
+ * which should never be visible to users.
  * 
- * Solution: unified-search.js now stores the original docname in a data attribute
- * on each result link. This bridge ensures that doesn't cause issues with Ulwazi's
- * breadcrumb extraction, which normally extracts from href (which may be rewritten).
- * 
- * For local results: breadcrumbs work fine as-is
- * For remote results: unified-search.js rewrites href to point to remote site
- *   - breadcrumbs will be "wrong" but that's acceptable since result opens in new tab
- *   - this bridge prevents errors by verifying the data attribute exists
+ * This bridge:
+ * 1. Removes breadcrumbs from results containing __unified__ namespace
+ * 2. Removes breadcrumbs from results unified-search.js has hidden
+ * 3. Ensures docname data attribute is preserved for remaining breadcrumbs
  */
 
 (function() {
   'use strict';
 
-  // Minimal compatibility check: ensure all anchors that unified-search.js
-  // has processed still have valid markup for breadcrumbs.js to work with
-  
-  function ensureDocnamePreserved() {
-    var results = document.querySelectorAll('#search-results ul.search li a');
-    results.forEach(function(anchor) {
-      // If unified-search.js hasn't set the data attribute, do it now as fallback
-      if (!anchor.dataset.unifiedSearchOriginalDocname) {
-        var href = anchor.getAttribute('href');
-        if (href) {
-          var docName = href
-            .split('#')[0]
-            .replace(/^\.\.\//, '')
-            .replace(/\/$/, '');
-          anchor.dataset.unifiedSearchOriginalDocname = docName;
+  function cleanupProblematicBreadcrumbs() {
+    var results = document.querySelectorAll('#search-results ul.search li');
+    
+    results.forEach(function(li) {
+      var anchor = li.querySelector('a');
+      if (!anchor) return;
+      
+      var href = anchor.getAttribute('href');
+      if (!href) return;
+      
+      // Remove breadcrumbs from results that:
+      // 1. Contain __unified__ namespace (internal merged index paths)
+      // 2. Are marked as hidden/filtered by unified-search.js
+      var isNamespaced = href.includes('__unified__');
+      var isFiltered = li.dataset.unifiedSearchFiltered === 'true';
+      
+      if (isNamespaced || isFiltered) {
+        // Remove any breadcrumb nav from this result
+        var breadcrumb = li.querySelector('.search-result-breadcrumb');
+        if (breadcrumb) {
+          breadcrumb.remove();
         }
+        return;
+      }
+      
+      // For valid results, ensure docname is preserved
+      if (!anchor.dataset.unifiedSearchOriginalDocname) {
+        var docName = href
+          .split('#')[0]
+          .replace(/^\.\.\//, '')
+          .replace(/\/$/, '');
+        anchor.dataset.unifiedSearchOriginalDocname = docName;
       }
     });
   }
 
-  // Run after DOM is ready and scripts have loaded
+  // Run cleanup after DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(ensureDocnamePreserved, 100);
+      // Wait for both unified-search.js and search-breadcrumbs.js to run
+      setTimeout(cleanupProblematicBreadcrumbs, 500);
     });
   } else {
-    setTimeout(ensureDocnamePreserved, 100);
+    setTimeout(cleanupProblematicBreadcrumbs, 500);
   }
 
-  // Also run periodically to catch lazy-loaded results
-  setInterval(ensureDocnamePreserved, 2000);
+  // Re-run periodically to catch lazy-loaded or dynamically added results
+  var cleanupInterval = setInterval(cleanupProblematicBreadcrumbs, 1000);
+  
+  // Stop after 30 seconds to avoid unnecessary overhead
+  setTimeout(function() {
+    clearInterval(cleanupInterval);
+  }, 30000);
 })();
