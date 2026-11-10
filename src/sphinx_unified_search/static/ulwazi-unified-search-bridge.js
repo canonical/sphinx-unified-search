@@ -36,28 +36,19 @@
         return;
       }
       
-      // For unified-search results (marked with data attributes), remove breadcrumbs
-      // Unified-search handles its own result organization via project filtering
-      var hasUnifiedSearchMarkers = (
-        anchor.dataset.unifiedSearchPatched ||
-        anchor.dataset.unifiedSearchRemote ||
-        anchor.dataset.unifiedSearchOriginalDocname ||
-        li.dataset.unifiedSearchProject ||
-        li.dataset.unifiedSearchFiltered !== undefined
-      );
+      // Remove hidden/filtered results
+      if (li.dataset.unifiedSearchHidden === 'true') {
+        li.remove();
+        return;
+      }
       
-      if (hasUnifiedSearchMarkers) {
-        // Remove the breadcrumb nav to prevent layout conflicts
+      // For REMOTE results only (not local), remove breadcrumbs
+      // Remote results have Ulwazi breadcrumbs that conflict with their structure
+      // Local results should keep their breadcrumbs from Ulwazi
+      if (anchor.dataset.unifiedSearchRemote) {
         var breadcrumb = li.querySelector('.search-result-breadcrumb');
         if (breadcrumb) {
           breadcrumb.remove();
-        }
-        
-        // If result is hidden/filtered, remove entire item
-        if (li.dataset.unifiedSearchFiltered === 'true' || 
-            li.dataset.unifiedSearchHidden === 'true') {
-          li.remove();
-          return;
         }
       }
     });
