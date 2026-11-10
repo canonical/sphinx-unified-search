@@ -35,6 +35,8 @@ def add_assets(app):
 def add_js_to_search_page(app, pagename, templatename, context, doctree):
     """
     Inject unified-search.js only on the search page.
+    For Ulwazi theme, also include a compatibility bridge to prevent conflicts
+    with Ulwazi's search-breadcrumbs.js.
     """
     if pagename != "search":
         return
@@ -54,9 +56,22 @@ def add_js_to_search_page(app, pagename, templatename, context, doctree):
         "_static/unified-search.js"
     )
 
+    # Detect theme and add compatibility bridge if needed
+    theme_setting = getattr(app.config, "unified_search_theme", DEFAULT_THEME) or DEFAULT_THEME
+    theme_key = theme_setting.strip().lower()
+    
+    # Add Ulwazi compatibility bridge to prevent conflicts with search-breadcrumbs.js
+    # The bridge works with the data-unified-search-original-docname attribute that
+    # unified-search.js now stores on all result anchors
+    if theme_key == "ulwazi":
+        context["script_files"].append(
+            "_static/ulwazi-unified-search-bridge.js"
+        )
+        logger.info(
+            "[unified-search] added Ulwazi compatibility bridge"
+        )
+
     if app.config.unified_search_project_filter:
-        theme_setting = getattr(app.config, "unified_search_theme", DEFAULT_THEME) or DEFAULT_THEME
-        theme_key = theme_setting.strip().lower()
         css_name = KNOWN_THEMES.get(theme_key, KNOWN_THEMES[DEFAULT_THEME])
         context.setdefault("css_files", []).append(f"_static/{css_name}")
 

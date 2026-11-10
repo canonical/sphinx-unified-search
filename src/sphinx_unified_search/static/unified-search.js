@@ -405,6 +405,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
         result.dataset.unifiedSearchProject =
           config.local_project;
+        
+        // Store original docname for breadcrumbs to extract even if other scripts modify the href
+        anchor.dataset.unifiedSearchOriginalDocname =
+          normalize(href);
 
         continue;
       }
@@ -431,6 +435,10 @@ window.addEventListener("DOMContentLoaded", async () => {
         "true";
       anchor.dataset.unifiedSearchRemote =
         info.docname;
+      
+      // Store original docname for breadcrumbs to extract even if other scripts modify the href
+      anchor.dataset.unifiedSearchOriginalDocname =
+        normalize(href);
 
       result.dataset.unifiedSearchProject =
         info.project;
@@ -743,6 +751,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   async function patchSearchResults() {
     patchLinks();
     dedupeResults();
+
+    // Signal that synchronous DOM modifications are complete.
+    // This allows other scripts (e.g., Ulwazi theme's search-breadcrumbs.js)
+    // to coordinate their DOM modifications and avoid conflicts.
+    // Event fires after links are patched but before asynchronous snippet loading.
+    document.dispatchEvent(
+      new CustomEvent("unified-search:results-patched")
+    );
+
     initFilter();
     await loadSnippets();
   }
