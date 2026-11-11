@@ -18,9 +18,8 @@ For each private RTD project:
 1. Select "Allow access to all versions?" if you intend to use `searchindex.js`
    for all versions of the docs set. Otherwise, deselect that option and add the
    versions that will be used by `sphinx-unified-search`.
-
-Copy the generated token and store it as a secret environment variable in the
-host RTD project that is _building_ the unified search.
+1. Copy the generated token and store it as a secret environment variable in the
+   host RTD project that is _building_ the unified search.
 
 For example, if "PROJECT B" wants to add the `searchindex.js` from "PROJECT A"
 to its search results, generate the HTTP header token in PROJECT A, and add it

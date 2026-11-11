@@ -185,6 +185,70 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   //
+  // Top-level search results only. Themes such as Ulwazi render a
+  // breadcrumb <nav> with its own <li> and <a> elements inside each
+  // result, so "ul.search li" and "result.querySelector('a')" would
+  // match breadcrumb items instead of the result itself.
+  //
+  function resultItems() {
+    return [...document.querySelectorAll("ul.search > li")];
+  }
+
+  // The result's title link: a direct child of the result <li>.
+  function mainAnchor(result) {
+    return (
+      result.querySelector(":scope > a[data-score]") ||
+      result.querySelector(":scope > a")
+    );
+  }
+
+  // Remote URL for a mapped page, preserving any #fragment.
+  function buildRemoteUrl(info, href) {
+    const hash = (href.match(/#.*$/) || [""])[0];
+    return (
+      info.base_url.replace(/\/$/, "") +
+      "/" +
+      normalize(info.docname) +
+      "/" +
+      hash
+    );
+  }
+
+  //
+  // Rewrite breadcrumb links of a result to their remote URLs. A
+  // breadcrumb that cannot be mapped would point at a page that does
+  // not exist locally, so just that breadcrumb is hidden.
+  //
+  function patchBreadcrumbs(result) {
+    const links = result.querySelectorAll(
+      ":scope > nav .search-breadcrumb-item a"
+    );
+
+    for (const a of links) {
+      const href = a.getAttribute("href");
+
+      if (!isNamespaced(href)) {
+        continue;
+      }
+
+      const info = lookupProject(href);
+
+      if (!info || info.docname.startsWith("__unified__/")) {
+        const item = a.closest(".search-breadcrumb-item");
+        if (item) {
+          item.hidden = true;
+          item.style.display = "none";
+        }
+        continue;
+      }
+
+      a.href = buildRemoteUrl(info, href);
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+    }
+  }
+
+  //
   // De-duplication of the SAME page indexed twice: once as a local
   // result and once as a remote one. This only happens when the local
   // site is itself listed in unified_search_projects.
@@ -200,11 +264,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   // arrive progressively.
   //
   function dedupeResults() {
-    const results = [...document.querySelectorAll("ul.search li")];
+    const results = resultItems();
     const localDocs = new Set();
 
     for (const result of results) {
-      const a = result.querySelector("a");
+      const a = mainAnchor(result);
       if (!a || a.dataset.unifiedSearchRemote) continue;
 
       const href = a.getAttribute("href");
@@ -214,7 +278,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     for (const result of results) {
-      const a = result.querySelector("a");
+      const a = mainAnchor(result);
       if (!a || !a.dataset.unifiedSearchRemote) continue;
 
       const dup =
@@ -299,7 +363,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   function setContext(result, message) {
 
     let context =
-      result.querySelector(".context");
+      result.querySelector(":scope > .context");
 
     if (!context) {
 
@@ -324,9 +388,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   function patchLinks() {
 
     const searchResults =
-      document.querySelectorAll(
-        "ul.search li"
-      );
+      resultItems();
 
     console.log(
       "[unified-search] found",
@@ -337,7 +399,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     for (const result of searchResults) {
 
       const anchor =
-        result.querySelector("a");
+        mainAnchor(result);
 
       if (!anchor) {
         continue;
@@ -410,10 +472,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
 
       const remoteUrl =
-        info.base_url.replace(/\/$/, "") +
-        "/" +
-        normalize(info.docname) +
-        "/";
+        buildRemoteUrl(info, href);
+
+      // Breadcrumbs first: the title change below triggers theme scripts.
+      patchBreadcrumbs(result);
 
       console.log(
         "[unified-search] rewriting",
@@ -478,10 +540,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   //
   async function loadSnippets() {
 
-    for (const result of document.querySelectorAll("ul.search li")) {
+    for (const result of resultItems()) {
 
       const anchor =
-        result.querySelector("a");
+        mainAnchor(result);
 
       if (
         !anchor ||
@@ -571,15 +633,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   //
   // Project filter (unified_search_project_filter).
   //
-  // Sphinx streams results in one at a time and only writes the
-  // "Search finished" summary once the last one is shown. The filter
-  // waits for that, so counts are final and nothing shifts while the
-  // list is still filling up. Filtering only hides rows: results are
-  // never removed, and their previews are still fetched.
+  // Themes render results progressively (and may rewrite the summary line
+  // before the last result is shown), so there is no reliable "finished"
+  // signal. The filter is therefore rebuilt whenever the visible counts
+  // change, rather than once. It only shows projects that have results,
+  // and filtering only hides rows: results are never removed, and their
+  // previews are still fetched.
   //
   const filterState = {
-    initialised: false,
-    selected: new Set(),
+    selected: new Set(),   // raw selection (also mirrored in the URL)
+    urlRead: false,
+    bar: null,
+    signature: "",
   };
 
   function searchFinished() {
@@ -598,13 +663,67 @@ window.addEventListener("DOMContentLoaded", async () => {
     return result.dataset.unifiedSearchProject || "";
   }
 
-  function initFilter() {
+  // Selected projects that actually have results right now.
+  function effectiveSelection(projects) {
+    return new Set(
+      [...filterState.selected].filter((name) => projects.includes(name))
+    );
+  }
 
-    if (
-      !config.filter ||
-      filterState.initialised ||
-      !searchFinished()
-    ) {
+  function applyFilter(list, projects) {
+
+    const selected = effectiveSelection(projects);
+    const all = selected.size === 0;
+
+    for (const result of list.querySelectorAll(":scope > li")) {
+      const project = projectOf(result);
+      const filtered =
+        !all &&
+        project !== "" &&
+        !selected.has(project);
+
+      result.dataset.unifiedSearchFiltered = filtered ? "true" : "false";
+      applyVisibility(result);
+    }
+
+    if (filterState.bar) {
+      for (const chip of filterState.bar.querySelectorAll(
+        ".unified-search-chip"
+      )) {
+        const name = chip.dataset.project;
+        const pressed = name === "" ? all : selected.has(name);
+        chip.setAttribute("aria-pressed", pressed ? "true" : "false");
+      }
+    }
+
+    // Keep the selection in the URL so it survives reloads and can
+    // be shared. Does not trigger a new search.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("project");
+    for (const name of filterState.selected) {
+      params.append("project", name);
+    }
+    const query = params.toString();
+    history.replaceState(
+      null,
+      "",
+      window.location.pathname +
+        (query ? "?" + query : "") +
+        window.location.hash
+    );
+  }
+
+  function removeFilterBar() {
+    if (filterState.bar) {
+      filterState.bar.remove();
+      filterState.bar = null;
+    }
+    filterState.signature = "";
+  }
+
+  function refreshFilter() {
+
+    if (!config.filter) {
       return;
     }
 
@@ -615,56 +734,74 @@ window.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    filterState.initialised = true;
+    if (!filterState.urlRead) {
+      filterState.urlRead = true;
+      for (const name of new URLSearchParams(window.location.search).getAll("project")) {
+        filterState.selected.add(name);
+      }
+    }
 
     // Count visible results per project. Results the extension hid
     // (duplicates, unresolved) are not counted.
     const counts = new Map();
 
-    for (const result of list.querySelectorAll("li")) {
+    for (const result of list.querySelectorAll(":scope > li")) {
       const project = projectOf(result);
       if (!project || isHidden(result)) continue;
       counts.set(project, (counts.get(project) || 0) + 1);
     }
 
-    // Local project first, then remote projects in configured order.
-    const projects = [
-      config.local_project,
-      ...new Set(
-        [...lookupIndex.values()].map((info) => info.project)
-      ),
-      ...counts.keys(),
-    ].filter(
-      (name, i, all) => counts.has(name) && all.indexOf(name) === i
+    // Projects the site is configured with (local + remote). A site with
+    // a single project has nothing to filter between.
+    const configured = new Set(
+      [
+        config.local_project,
+        ...[...lookupIndex.values()].map((info) => info.project),
+      ].filter(Boolean)
     );
 
-    // Nothing to filter between.
-    if (projects.length < 2) {
+    // Only projects that have results get a chip. Local project first,
+    // then remote projects in configured order.
+    const projects = [...configured, ...counts.keys()].filter(
+      (name, i, all) => counts.get(name) > 0 && all.indexOf(name) === i
+    );
+
+    if (configured.size < 2 || projects.length === 0) {
+      removeFilterBar();
       return;
     }
 
-    for (const name of new URLSearchParams(window.location.search).getAll("project")) {
-      if (projects.includes(name)) {
-        filterState.selected.add(name);
-      }
+    let total = 0;
+    for (const n of counts.values()) total += n;
+
+    const signature = JSON.stringify([
+      total,
+      projects.map((name) => [name, counts.get(name)]),
+    ]);
+
+    if (signature === filterState.signature && filterState.bar?.isConnected) {
+      return;
     }
 
-    const bar = document.createElement("div");
+    filterState.signature = signature;
+
+    const bar = filterState.bar || document.createElement("div");
+    filterState.bar = bar;
     bar.className = "unified-search-filter";
     bar.setAttribute("role", "group");
     bar.setAttribute("aria-label", "Filter results by project");
+    bar.textContent = "";
 
     const label = document.createElement("span");
     label.className = "unified-search-filter__label";
     label.textContent = "Filter by project:";
     bar.appendChild(label);
 
-    const chips = new Map();
-
     function addChip(name, count) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "unified-search-chip";
+      chip.dataset.project = name === null ? "" : name;
 
       const text = document.createElement("span");
       text.textContent = name === null ? "All" : name;
@@ -683,67 +820,28 @@ window.addEventListener("DOMContentLoaded", async () => {
         } else {
           filterState.selected.add(name);
         }
-        applyFilter();
+        applyFilter(list, projects);
       });
 
-      chips.set(name, chip);
       bar.appendChild(chip);
     }
-
-    let total = 0;
-    for (const n of counts.values()) total += n;
 
     addChip(null, total);
     for (const name of projects) {
       addChip(name, counts.get(name));
     }
 
-    function applyFilter() {
-
-      const all = filterState.selected.size === 0;
-
-      for (const result of list.querySelectorAll("li")) {
-        const project = projectOf(result);
-        const filtered =
-          !all &&
-          project !== "" &&
-          !filterState.selected.has(project);
-
-        result.dataset.unifiedSearchFiltered = filtered ? "true" : "false";
-        applyVisibility(result);
-      }
-
-      for (const [name, chip] of chips) {
-        const pressed =
-          name === null ? all : filterState.selected.has(name);
-        chip.setAttribute("aria-pressed", pressed ? "true" : "false");
-      }
-
-      // Keep the selection in the URL so it survives reloads and can
-      // be shared. Does not trigger a new search.
-      const params = new URLSearchParams(window.location.search);
-      params.delete("project");
-      for (const name of filterState.selected) {
-        params.append("project", name);
-      }
-      const query = params.toString();
-      history.replaceState(
-        null,
-        "",
-        window.location.pathname +
-          (query ? "?" + query : "") +
-          window.location.hash
-      );
+    if (!bar.isConnected) {
+      list.parentNode.insertBefore(bar, list);
     }
 
-    list.parentNode.insertBefore(bar, list);
-    applyFilter();
+    applyFilter(list, projects);
   }
 
   async function patchSearchResults() {
     patchLinks();
     dedupeResults();
-    initFilter();
+    refreshFilter();
     await loadSnippets();
   }
 

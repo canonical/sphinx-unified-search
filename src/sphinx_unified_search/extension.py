@@ -11,41 +11,33 @@ logger = logging.getLogger(__name__)
 
 
 def add_assets(app):
-    static_dir = (
-        Path(__file__).parent / "static"
-    )
+    static_dir = Path(__file__).parent / "static"
 
     if str(static_dir) not in app.config.html_static_path:
-        app.config.html_static_path.append(
-            str(static_dir)
-        )
+        app.config.html_static_path.append(str(static_dir))
 
-    logger.info(
-        "[unified-search] registered static assets"
-    )
+    logger.info("[unified-search] registered static assets")
 
 
 def add_js_to_search_page(app, pagename, templatename, context, doctree):
     """
-    Inject unified-search.js only on the search page.
+    Inject unified-search scripts and styles on the search page.
     """
     if pagename != "search":
         return
 
-    logger.info(
-        "[unified-search] adding JS to search page"
-    )
+    logger.info("[unified-search] adding JS to search page")
 
     if "script_files" not in context:
         return
 
-    context["script_files"].append(
-        "_static/unified-search-scorer.js"
-    )
+    context["script_files"].append("_static/unified-search-scorer.js")
+    context["script_files"].append("_static/unified-search.js")
 
-    context["script_files"].append(
-        "_static/unified-search.js"
-    )
+    theme = (getattr(app.config, "unified_search_theme", "") or "").lower()
+    if theme == "ulwazi":
+        context["script_files"].append("_static/unified-search-ulwazi.js")
+        context.setdefault("css_files", []).append("_static/unified-search-ulwazi.css")
 
     if app.config.unified_search_project_filter:
         context.setdefault("css_files", []).append(
@@ -68,10 +60,7 @@ def build_finished(app, exception):
         app.builder.name,
     )
 
-    if not isinstance(
-        app.builder,
-        StandaloneHTMLBuilder,
-    ):
+    if not isinstance(app.builder, StandaloneHTMLBuilder):
         logger.info(
             "[unified-search] skipping: builder '%s' is not HTML-based",
             app.builder.name,
@@ -86,14 +75,10 @@ def build_finished(app, exception):
     )
 
     if not projects:
-        logger.warning(
-            "[unified-search] no unified_search_projects configured"
-        )
+        logger.warning("[unified-search] no unified_search_projects configured")
         return
 
-    searchindex = (
-        Path(app.outdir) / "searchindex.js"
-    )
+    searchindex = Path(app.outdir) / "searchindex.js"
 
     logger.info(
         "[unified-search] local search index path: %s",
@@ -101,9 +86,7 @@ def build_finished(app, exception):
     )
 
     if not searchindex.exists():
-        logger.warning(
-            "[unified-search] searchindex.js not found"
-        )
+        logger.warning("[unified-search] searchindex.js not found")
         return
 
     cache_dir = None
@@ -156,9 +139,7 @@ def build_finished(app, exception):
 
 
 def setup(app):
-    logger.info(
-        "[unified-search] extension loaded"
-    )
+    logger.info("[unified-search] extension loaded")
 
     app.add_config_value(
         "unified_search_projects",
@@ -187,11 +168,16 @@ def setup(app):
         types=[str],
     )
 
-    # Optional, off by default. URL of a local preview proxy (see
-    # sphinx-unified-search-proxy). Only used by pages served from localhost.
     app.add_config_value(
         "unified_search_preview_proxy",
         "",
+        "html",
+        types=[str],
+    )
+
+    app.add_config_value(
+        "unified_search_theme",
+        "furo",
         "html",
         types=[str],
     )
