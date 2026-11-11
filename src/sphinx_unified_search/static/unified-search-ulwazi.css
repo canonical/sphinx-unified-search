@@ -1,0 +1,77 @@
+/* ==========================================================================
+   Sphinx Unified Search - Canonical Ulwazi Theme Integration
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Filter Chips (Canonical Vanilla style)
+   -------------------------------------------------------------------------- */
+.unified-search-filter {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  margin-bottom: 2rem !important;
+  padding-bottom: 1rem !important;
+  border-bottom: 1px solid #d9d9d9 !important;
+}
+
+.unified-search-filter__label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-right: 0.25rem;
+}
+
+.unified-search-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  padding: 0.25rem 0.75rem !important;
+  border: 1px solid #666 !important;
+  border-radius: 1.5rem !important;
+  background-color: transparent !important;
+  color: #111 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.unified-search-chip:hover {
+  background-color: #f7f7f7 !important;
+  border-color: #111 !important;
+}
+
+.unified-search-chip[aria-pressed="true"] {
+  background-color: #e95420 !important; /* Ubuntu orange */
+  border-color: #e95420 !important;
+  color: #ffffff !important;
+}
+
+.unified-search-chip[aria-pressed="true"] span {
+  color: #ffffff !important;
+}
+
+.unified-search-chip__count {
+  font-size: 0.8125rem !important;
+  opacity: 0.9 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Results
+   Typography, spacing and colours come from Ulwazi's own search.css so
+   unified results look identical to the theme's native results. Only
+   visibility rules live here.
+   -------------------------------------------------------------------------- */
+#search-results ul.search > li[hidden],
+#search-results ul.search > li[data-unified-search-filtered="true"],
+#search-results ul.search > li[data-unified-search-hidden="true"],
+#search-results ul.search > li[style*="display: none"] {
+  display: none !important;
+}
+
+/* Breadcrumb items that point nowhere (unmapped __unified__ pages) */
+.search-breadcrumb-item[hidden],
+.search-breadcrumb-item[style*="display: none"],
+.search-breadcrumb-item a[href*="__unified__"] {
+  display: none !important;
+}
