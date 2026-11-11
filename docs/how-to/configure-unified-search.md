@@ -78,10 +78,11 @@ unified_search_project_filter = True
 unified_search_local_project_name = "My Docs"
 ```
 
-When the search has finished, a "Filter by project" row appears above the
-results, with one chip per project that has results and the number of results
-next to it. Select one or more chips to show only those projects; select
-"All" (or deselect every chip) to show everything again.
+A "Filter by project" row appears above the results, with one chip per project
+that has results and the number of results next to it. Projects with no
+results for the current search don't get a chip. The chips update as results
+load. Select one or more chips to show only those projects; select "All" (or
+deselect every chip) to show everything again.
 
 For more details on the filter behavior, see the
 {ref}`configuration reference <ref-configuration-unified-search-project-filter>`.
