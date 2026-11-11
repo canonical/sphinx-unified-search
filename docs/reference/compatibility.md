@@ -12,7 +12,10 @@ site requirements for `sphinx-unified-search`.
   - Status
 * - Sphinx Stack 2.0 (Canonical Sphinx theme)
   - Supported. Works without changes.
-* - Other Sphinx Stack versions, including 3.0 and its default Ulwazi theme
+* - Sphinx Stack 3.0 (Ulwazi theme)
+  - Supported. Set `unified_search_theme = "ulwazi"`. See
+    {ref}`the Ulwazi theme <ref-compatibility-ulwazi>`.
+* - Other Sphinx Stack versions
   - Not tested. May need changes.
 * - Any other Sphinx theme
   - Not tested. May fail, or need custom CSS.
@@ -20,7 +23,8 @@ site requirements for `sphinx-unified-search`.
 
 `sphinx-unified-search` is developed and tested against documentation projects
 based on [Canonical's Sphinx Stack 2.0], which uses the Canonical Sphinx theme
-(loaded through the `canonical_sphinx` extension).
+(loaded through the `canonical_sphinx` extension), and against Sphinx Stack
+3.0 with the Ulwazi theme.
 
 ## What the extension depends on
 
@@ -36,15 +40,19 @@ reasoning, see
 * - Dependency
   - Details
 * - Standard search page markup
-  - Results are read from the `ul.search` list (one `li` per result, each with
-    a link and a `.context` paragraph). The extension waits for
-    `#search-results .search-summary` to know the search has finished.
+  - Results are the direct children of the `ul.search` list (one `li` per
+    result). Each result has a title link and a `.context` paragraph as direct
+    children. Links or lists nested inside a result, such as Ulwazi's
+    breadcrumbs, aren't treated as results. The project filter rebuilds as
+    results appear, so it doesn't depend on a "search finished" summary.
 * - Sphinx's `Scorer` object
   - The extension extends `window.Scorer`, which comes from Sphinx's stock
     search scripts.
 * - Theme colors for the project filter
   - Chips use the Canonical Sphinx theme's CSS variables
-    (`--color-brand-primary` and similar), with plain fallbacks.
+    (`--color-brand-primary` and similar), with plain fallbacks. With
+    `unified_search_theme = "ulwazi"`, chips use fixed colors from the Ulwazi
+    stylesheet instead.
 * - `dirhtml` URLs on remote projects
   - Links to remote results are built as `<base_url><docname>/`. Remote
     projects built with the default `html` builder (`page.html`) get
@@ -55,6 +63,33 @@ reasoning, see
 * - HTML builders only
   - Other builders (such as `latex` or `epub`) are skipped.
 ```
+
+## The Ulwazi theme
+
+(ref-compatibility-ulwazi)=
+
+Set `unified_search_theme = "ulwazi"` in `conf.py` to enable the Ulwazi
+integration. It adds two files to the search page, after the default scripts
+and styles:
+
+```{list-table}
+:header-rows: 1
+
+* - File
+  - Purpose
+* - `unified-search-ulwazi.js`
+  - Tidies each result's breadcrumbs: removes crumbs that have no remote page,
+    removes the project prefix from crumb labels, and keeps the snippet
+    directly under the title.
+* - `unified-search-ulwazi.css`
+  - Styles the filter chips and hides filtered results and unmapped crumbs. It
+    leaves result typography, spacing, and colors to Ulwazi's own
+    `search.css`.
+```
+
+The core script (`unified-search.js`) rewrites remote links in both the result
+title and the breadcrumbs (`.search-breadcrumb-item a`), and keeps any
+`#fragment` from the original link.
 
 ## CSS classes
 

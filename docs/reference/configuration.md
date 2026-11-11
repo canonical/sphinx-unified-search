@@ -29,6 +29,10 @@ project documentation. Verify them against the source before publishing.
   - str
   - Sphinx's `project` setting
   - Label for this project's results in the filter
+* - `unified_search_theme`
+  - str
+  - `"furo"`
+  - Theme integration for the search page: `"furo"` (default) or `"ulwazi"`
 * - `unified_search_cache_remote_indexes`
   - bool
   - `False`
@@ -119,9 +123,13 @@ sent to that project.
 
 
 When `True`, a "Filter by project" row of chips appears above the search
-results. The filter is off by default and isn't shown when results come from
-only one project. It only hides result rows; it doesn't remove them, and
-previews are still loaded for all results.
+results. The filter is off by default. It's only shown when more than one
+project is configured, and each chip is a project that has at least one result
+for the current search. Projects with no results get no chip. The chips and
+their counts update as results load, so they always match the results list.
+
+The filter only hides result rows; it doesn't remove them, and previews are
+still loaded for all results.
 
 The selected projects are stored in the URL (for example,
 `?q=term&project=ProjectA`), so the selection survives a reload and can be
@@ -129,6 +137,38 @@ shared.
 
 See {ref}`Search page reference <ref-compatibility-css-classes>` for the CSS
 classes and URL parameter.
+
+## unified_search_theme
+
+(ref-configuration-unified-search-theme)=
+
+Selects the theme-specific part of the search page integration. The value is
+case-insensitive.
+
+```{list-table}
+:header-rows: 1
+
+* - Value
+  - Use for
+* - `"furo"` (default)
+  - The Canonical Sphinx theme used by Sphinx Stack 2.0, and other themes that
+    keep Sphinx's standard search results markup.
+* - `"ulwazi"`
+  - The Ulwazi theme used by Sphinx Stack 3.0.
+```
+
+With `"ulwazi"`, the extension also loads `unified-search-ulwazi.js` and
+`unified-search-ulwazi.css`. These keep remote results consistent with
+Ulwazi's own results: breadcrumbs link to the remote project, and the
+typography and spacing come from the theme. Any other value behaves like the
+default.
+
+The setting isn't detected from `html_theme`. If you use Ulwazi, set it
+yourself:
+
+```{code-block} python
+unified_search_theme = "ulwazi"
+```
 
 ## unified_search_local_project_name
 

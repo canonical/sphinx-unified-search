@@ -1,11 +1,16 @@
-# How to use a custom theme
+# How to use a different theme
 
-`sphinx-unified-search` is tested with Sphinx Stack 2.0 (Canonical Sphinx
-theme). Other themes and Sphinx Stack versions aren't tested or supported yet.
-Search can fail, or the results page can look wrong, unless you make changes.
+`sphinx-unified-search` is tested with two setups:
 
-This guide shows how to check what's wrong and fix the most common issue, the
-look of the (optional) project filter.
+- Sphinx Stack 2.0 (Canonical Sphinx theme), the default integration.
+- Sphinx Stack 3.0 with the Ulwazi theme, which you enable with
+  `unified_search_theme`.
+
+Other themes and Sphinx Stack versions aren't tested or supported yet. Search
+can fail, or the results page can look wrong, unless you make changes.
+
+This guide shows how to switch to the Ulwazi integration, check what's wrong,
+and fix the most common issue, the look of the (optional) project filter.
 
 ```{seealso}
 - To check a theme's integration requirements, see the
@@ -16,6 +21,23 @@ look of the (optional) project filter.
 {doc}`Configure unified search </how-to/configure-unified-search>`.
 ```
 
+## Use the Ulwazi theme
+
+Ulwazi renders a breadcrumb trail inside each search result. Without the
+Ulwazi integration, remote results can have broken links or snippets, and the
+results can look different from Ulwazi's own.
+
+Add this to `conf.py`:
+
+```{code-block} python
+unified_search_theme = "ulwazi"
+```
+
+The extension doesn't read `html_theme`, so this setting is required even when
+your project already uses Ulwazi. Rebuild the docs and search for a term that
+appears in a remote project. Remote results should link to the remote site,
+including their breadcrumbs, and look like local results.
+
 ## Check what the extension found
 
 1. Build the docs and open the search page.
@@ -25,7 +47,10 @@ look of the (optional) project filter.
 ## Restyle the project filter
 
 The filter chips only appear when `unified_search_project_filter = True`. If
-they look wrong in your theme, override their styles in your own CSS file.
+they look wrong in your theme, override their styles in your own CSS file. With
+`unified_search_theme = "ulwazi"`, the extension's Ulwazi stylesheet sets the
+chip colors (Ubuntu orange for the selected chip) with `!important`, so your
+rules need `!important` as well.
 
 Add a stylesheet to your docs:
 

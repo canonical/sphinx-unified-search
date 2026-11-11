@@ -29,8 +29,9 @@ never written to disk.
 ## Browser time: results and previews
 
 The extension adjusts the standard search results page in the browser. It
-reads the result list, adds the project filter if enabled, and loads a short
-preview for each remote result by fetching the remote page.
+reads the result list, adds the project filter if enabled (updating its chips
+as results load), and loads a short preview for each remote result by fetching
+the remote page.
 
 ## Private projects and previews
 
@@ -67,10 +68,15 @@ whose titles or headings contain confidential information.
 The extension adds cross-project behavior to Sphinx's standard search page; it
 doesn't provide a separate search page or search engine. As a result, it
 depends on the markup and JavaScript that the standard page provides. It reads
-results from Sphinx's `ul.search` list. When the project filter is enabled, it
-also waits for `#search-results .search-summary` before counting results, so
-the counts are final. If a theme changes those elements, the extension may not
-be able to read the results or initialize the filter. The extension also adds
+results from Sphinx's `ul.search` list, treating only the direct children of
+that list as results. Themes can add their own elements inside each result. For
+example, Ulwazi adds a breadcrumb trail with its own links, which the extension
+rewrites to point at the remote project but never counts as results. Search
+results arrive gradually and themes can rewrite the summary line while they do,
+so the project filter doesn't wait for a "finished" signal; it recounts and
+rebuilds its chips whenever the results change. If a theme changes the result
+list or its direct children, the extension may not be able to read the results
+or build the filter. The extension also adds
 its scoring behavior to `window.Scorer`, the interface used by Sphinx's search
 scripts. If a theme replaces those scripts with a different search interface,
 the extension's scoring behavior may not integrate with it.
@@ -78,7 +84,9 @@ the extension's scoring behavior may not integrate with it.
 Other dependencies affect only particular parts of the experience. The project
 filter uses CSS variables from the Canonical Sphinx theme, so a different theme
 can leave the filter chips with incorrect colors or poor contrast even when
-search works. Remote result links assume the `dirhtml` URL format
+search works. For Ulwazi, set `unified_search_theme = "ulwazi"` so the
+extension loads its Ulwazi script and stylesheet; they keep remote results
+visually consistent with the theme's own. Remote result links assume the `dirhtml` URL format
 (`<base_url><docname>/`); if a remote project uses the default `html` builder,
 its `page.html` URLs don't match that format. For previews, the extension reads
 text from a remote page's `<main>` element (or `[role="main"]`). If neither is
