@@ -4,44 +4,10 @@
 (function () {
   'use strict';
 
-  let metadataCache = null;
-  let metadataPromise = null;
   let isMutating = false;
   let debounceTimer = null;
 
-  function getMetadata() {
-    if (metadataCache) return Promise.resolve(metadataCache);
-    if (metadataPromise) return metadataPromise;
-
-    const root = (window.DOCUMENTATION_OPTIONS && window.DOCUMENTATION_OPTIONS.URL_ROOT) || '../';
-    const metaUrl = root + '_static/unified-search-metadata.json';
-
-    metadataPromise = fetch(metaUrl)
-      .then(r => r.ok ? r.json() : {})
-      .then(data => {
-        metadataCache = data;
-        return data;
-      })
-      .catch(() => {
-        metadataCache = {};
-        return {};
-      });
-
-    return metadataPromise;
-  }
-
-  function resolveRemoteUrl(href, project, meta) {
-    if (!href || href.startsWith('http://') || href.startsWith('https://')) return href;
-    const match = href.match(/__unified__\/([^/]+)\/(.*)/);
-    if (match && meta && meta[match[1]] && meta[match[1]].url) {
-      let base = meta[match[1]].url;
-      if (!base.endsWith('/')) base += '/';
-      return base + match[2];
-    }
-    return href;
-  }
-
-  function processResults(meta) {
+  function processResults() {
     const listItems = document.querySelectorAll('ul.search > li:not([data-ulwazi-ready="true"])');
     if (listItems.length === 0) {
       updateSummaryCount();
@@ -52,20 +18,17 @@
     observer.disconnect();
 
     listItems.forEach(li => {
-      const project = li.getAttribute('data-unified-search-project') || '';
-
-      // 1. Fix main link
-      const mainLink = li.querySelector('a[data-score]') || li.querySelector(':scope > a');
-      if (mainLink) {
-        const origHref = mainLink.getAttribute('href');
-        const realHref = resolveRemoteUrl(origHref, project, meta);
-        if (realHref !== origHref) {
-          mainLink.setAttribute('href', realHref);
-          if (realHref.startsWith('http')) {
-            mainLink.setAttribute('target', '_blank');
-            mainLink.setAttribute('rel', 'noopener noreferrer');
-          }
-        }
+      // 1. Wait until unified-search.js has rewritten this result.
+      // Remote links (and their breadcrumbs) are patched there; here we
+      // only tidy up. Results it never patches stay untouched/hidden.
+      const mainLink = li.querySelector(':scope > a[data-score]') || li.querySelector(':scope > a');
+      if (
+        mainLink &&
+        !mainLink.dataset.unifiedSearchPatched &&
+        /(^|\/)__unified__\//.test(mainLink.getAttribute('href') || '') &&
+        li.getAttribute('data-unified-search-hidden') !== 'true'
+      ) {
+        return;
       }
 
       // 2. Clean breadcrumb list
@@ -92,9 +55,9 @@
             a.textContent = text.replace(/^\[[^\]]+\]\s*/, '');
           }
 
-          if (a) {
-            const realA = resolveRemoteUrl(a.getAttribute('href'), project, meta);
-            a.setAttribute('href', realA);
+          // Anything still pointing into __unified__/ has no remote page.
+          if (a && /(^|\/)__unified__\//.test(href)) {
+            item.remove();
           }
         });
 
@@ -102,7 +65,7 @@
       }
 
       // 3. Keep snippet below title
-      const context = li.querySelector('.context');
+      const context = li.querySelector(':scope > .context');
       if (mainLink && context && mainLink.nextSibling !== context) {
         mainLink.insertAdjacentElement('afterend', context);
       }
@@ -136,7 +99,7 @@
   function scheduleRun() {
     if (debounceTimer) cancelAnimationFrame(debounceTimer);
     debounceTimer = requestAnimationFrame(() => {
-      getMetadata().then(meta => processResults(meta));
+      processResults();
     });
   }
 

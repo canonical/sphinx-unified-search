@@ -2,24 +2,6 @@
    Sphinx Unified Search - Canonical Ulwazi Theme Integration
    ========================================================================== */
 
-#search-results {
-  max-width: 52rem;
-  margin-top: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-#search-results h1.p-heading--1 {
-  font-size: 2rem;
-  line-height: 2.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.search-summary {
-  font-size: 0.875rem;
-  color: #666;
-  margin-bottom: 1.5rem;
-}
-
 /* --------------------------------------------------------------------------
    Filter Chips (Canonical Vanilla style)
    -------------------------------------------------------------------------- */
@@ -75,108 +57,21 @@
 }
 
 /* --------------------------------------------------------------------------
-   Results List Structure
+   Results
+   Typography, spacing and colours come from Ulwazi's own search.css so
+   unified results look identical to the theme's native results. Only
+   visibility rules live here.
    -------------------------------------------------------------------------- */
-ul.search {
-  list-style: none !important;
-  padding-left: 0 !important;
-  margin: 0 !important;
-}
-
-ul.search > li {
-  list-style: none !important;
-  display: block !important;
-  padding: 1.25rem 0 !important;
-  border-bottom: 1px solid #e5e5e5 !important;
-  width: 100% !important;
-  clear: both !important;
-}
-
-ul.search > li[hidden],
-ul.search > li[data-unified-search-filtered="true"],
-ul.search > li[style*="display: none"] {
+#search-results ul.search > li[hidden],
+#search-results ul.search > li[data-unified-search-filtered="true"],
+#search-results ul.search > li[data-unified-search-hidden="true"],
+#search-results ul.search > li[style*="display: none"] {
   display: none !important;
 }
 
-/* --------------------------------------------------------------------------
-   Breadcrumbs
-   -------------------------------------------------------------------------- */
-.search-result-breadcrumb {
-  display: block !important;
-  width: 100% !important;
-  margin-bottom: 0.35rem !important;
-}
-
-.search-breadcrumb-list {
-  display: inline-flex !important;
-  flex-wrap: wrap !important;
-  align-items: center !important;
-  list-style: none !important;
-  padding-left: 0 !important;
-  margin: 0 !important;
-  font-size: 0.8125rem !important;
-  color: #666 !important;
-}
-
-.search-breadcrumb-item {
-  display: inline-flex !important;
-  align-items: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  list-style: none !important;
-}
-
-.search-breadcrumb-item a {
-  color: #0066cc !important;
-  text-decoration: none !important;
-}
-
-.search-breadcrumb-item a:hover {
-  text-decoration: underline !important;
-}
-
-.search-breadcrumb-item:not(:last-child)::after {
-  content: "›" !important;
-  margin: 0 0.4rem !important;
-  color: #888 !important;
-}
-
-/* Hard hide any __unified__ crumb or hidden items */
-.search-breadcrumb-separator-final,
-.search-breadcrumb-item[data-unified-search-hidden="true"],
+/* Breadcrumb items that point nowhere (unmapped __unified__ pages) */
+.search-breadcrumb-item[hidden],
 .search-breadcrumb-item[style*="display: none"],
 .search-breadcrumb-item a[href*="__unified__"] {
   display: none !important;
-}
-
-/* --------------------------------------------------------------------------
-   Result Title Link
-   -------------------------------------------------------------------------- */
-ul.search > li > a[data-score],
-ul.search > li > a:not(.search-result-breadcrumb a) {
-  display: inline-block !important;
-  font-size: 1.15rem !important;
-  font-weight: 500 !important;
-  line-height: 1.4 !important;
-  color: #0066cc !important;
-  text-decoration: none !important;
-  margin-top: 0.15rem !important;
-  margin-bottom: 0.35rem !important;
-}
-
-ul.search > li > a:hover {
-  text-decoration: underline !important;
-}
-
-/* --------------------------------------------------------------------------
-   Context Snippet
-   -------------------------------------------------------------------------- */
-ul.search > li .context,
-ul.search > li p.context {
-  display: block !important;
-  font-size: 0.875rem !important;
-  line-height: 1.45 !important;
-  color: #333 !important;
-  margin-top: 0.25rem !important;
-  margin-bottom: 0 !important;
 }
