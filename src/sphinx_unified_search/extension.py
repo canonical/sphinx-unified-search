@@ -9,6 +9,14 @@ from .metadata import write_project_mapping, write_search_config
 
 logger = logging.getLogger(__name__)
 
+THEME_ASSETS = {
+    "ulwazi": {
+        "script": "_static/unified-search-ulwazi.js",
+        "css": "_static/unified-search-ulwazi.css",
+        "filter_css": "_static/unified-search-filter-ulwazi.css",
+    },
+}
+
 
 def add_assets(app):
     static_dir = Path(__file__).parent / "static"
@@ -35,14 +43,15 @@ def add_js_to_search_page(app, pagename, templatename, context, doctree):
     context["script_files"].append("_static/unified-search.js")
 
     theme = (getattr(app.config, "unified_search_theme", "") or "").lower()
-    if theme == "ulwazi":
-        context["script_files"].append("_static/unified-search-ulwazi.js")
-        context.setdefault("css_files", []).append("_static/unified-search-ulwazi.css")
+    assets = THEME_ASSETS.get(theme, {})
+
+    if "script" in assets:
+        context["script_files"].append(assets["script"])
+        context.setdefault("css_files", []).append(assets["css"])
 
     if app.config.unified_search_project_filter:
-        context.setdefault("css_files", []).append(
-            "_static/unified-search-filter.css"
-        )
+        filter_css = assets.get("filter_css", "_static/unified-search-filter.css")
+        context.setdefault("css_files", []).append(filter_css)
 
 
 def build_finished(app, exception):
